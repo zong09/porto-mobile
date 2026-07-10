@@ -1,0 +1,9 @@
+insertNetWorthHistory:
+INSERT OR REPLACE INTO net_worth_history (date, total_assets_thb, total_liabilities_thb, net_worth_thb, fx_rate)
+VALUES (:date, :totalAssetsThb, :totalLiabilitiesThb, :netWorthThb, :fxRate);
+
+getNetWorthHistory:
+SELECT * FROM net_worth_history ORDER BY date ASC;
+
+getNetWorthHistoryAfter:
+SELECT * FROM net_worth_history WHERE date >= :afterDate ORDER BY date ASC;

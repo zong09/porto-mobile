@@ -1,0 +1,17 @@
+insertLiability:
+INSERT INTO liabilities (id, name, amount, currency)
+VALUES (:id, :name, :amount, :currency);
+
+updateLiability:
+UPDATE liabilities
+SET name = :name, amount = :amount, currency = :currency
+WHERE id = :id;
+
+deleteLiability:
+DELETE FROM liabilities WHERE id = :id;
+
+getLiability:
+SELECT * FROM liabilities WHERE id = :id;
+
+getAllLiabilities:
+SELECT * FROM liabilities;

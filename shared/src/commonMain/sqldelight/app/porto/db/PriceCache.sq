@@ -1,0 +1,9 @@
+insertPriceCache:
+INSERT OR REPLACE INTO price_cache (key, price, chg24h, currency, fetched_at)
+VALUES (:key, :price, :chg24h, :currency, :fetchedAt);
+
+getPriceCache:
+SELECT * FROM price_cache WHERE key = :key;
+
+getAllPriceCache:
+SELECT * FROM price_cache;

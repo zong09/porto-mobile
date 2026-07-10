@@ -1,0 +1,20 @@
+insertPortfolio:
+INSERT INTO portfolios (id, name, color, sort_order)
+VALUES (:id, :name, :color, :sortOrder);
+
+updatePortfolio:
+UPDATE portfolios
+SET name = :name, color = :color, sort_order = :sortOrder
+WHERE id = :id;
+
+deletePortfolio:
+DELETE FROM portfolios WHERE id = :id;
+
+getPortfolio:
+SELECT * FROM portfolios WHERE id = :id;
+
+getAllPortfolios:
+SELECT * FROM portfolios ORDER BY sort_order ASC;
+
+reorderPortfolio:
+UPDATE portfolios SET sort_order = :sortOrder WHERE id = :id;
