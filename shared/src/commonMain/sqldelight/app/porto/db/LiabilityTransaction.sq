@@ -1,6 +1,0 @@
-insertLiabilityTransaction:
-INSERT INTO liability_transactions (id, liability_id, type, amount, date, created_at)
-VALUES (:id, :liabilityId, :type, :amount, :date, :createdAt);
-
-getLiabilityTransactions:
-SELECT * FROM liability_transactions WHERE liability_id = :liabilityId ORDER BY date ASC;

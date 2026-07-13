@@ -1,9 +1,0 @@
-insertSetting:
-INSERT OR REPLACE INTO settings (key, value)
-VALUES (:key, :value);
-
-getSetting:
-SELECT * FROM settings WHERE key = :key;
-
-getAllSettings:
-SELECT * FROM settings;

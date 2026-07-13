@@ -1,9 +1,0 @@
--- portfolios
-#include Portfolio.sq
-#include Asset.sq
-#include Transaction.sq
-#include Liability.sq
-#include LiabilityTransaction.sq
-#include NetWorthHistory.sq
-#include PriceCache.sq
-#include Settings.sq
