@@ -1,0 +1,178 @@
+# CONTRACTS — frozen (Phase 1 scope)
+
+Source of truth. Dispatched (Qwen) tasks implement these **exactly** — never rename, never
+"improve". Contract changes go through Claude only. Money is stored as `REAL` in DB and wrapped
+to `Decimal` (package:decimal) only inside domain math; models/DAOs use plain `double`.
+
+App is **single-user, local-only** — there is **no `userId`** anywhere (the backend had one; drop it).
+
+---
+
+## 1. Enums (`lib/src/models/enums.dart`)
+
+```
+enum AssetType   { crypto, th, us, fund, deposit }
+enum Currency    { thb, usd }          // JSON/DB value = uppercase 'THB' | 'USD'
+enum TxSide      { buy, sell, deposit, withdraw }
+enum Direction   { long, short }
+enum LiabilityTxType { pay, add }
+```
+
+JSON/DB string mapping rules (freeze):
+- `Currency`  ↔ `'THB'` / `'USD'` (UPPERCASE).
+- `AssetType`, `TxSide`, `Direction`, `LiabilityTxType` ↔ their lowercase name (`'crypto'`, `'buy'`, `'long'`, `'pay'`).
+- Every enum exposes `String get wire` (the stored string) and a static `fromWire(String)` factory.
+
+---
+
+## 2. Drift tables (`lib/src/db/tables.dart`)
+
+All ids `TEXT` (UUID v4, generated on-device). Dates `TEXT` `YYYY-MM-DD`. Timestamps `TEXT` ISO-8601.
+Money `REAL`. Enums stored as their `wire` string in a `TEXT` column. FKs `ON DELETE CASCADE`.
+
+| Table | Column → type (constraints) |
+|---|---|
+| `portfolios` | `id` TEXT PK · `name` TEXT · `color` INT (0–5) · `sortOrder` INT default 0 |
+| `assets` | `id` TEXT PK · `portfolioId` TEXT FK→portfolios.id CASCADE · `type` TEXT · `symbol` TEXT · `name` TEXT · `currency` TEXT default 'THB' · `cgId` TEXT? · `yahooSymbol` TEXT? · `manualPrice` REAL? · `direction` TEXT default 'long' · `sortOrder` INT default 0 |
+| `transactions` | `id` TEXT PK · `assetId` TEXT FK→assets.id CASCADE · `side` TEXT · `quantity` REAL · `price` REAL · `fee` REAL default 0 · `date` TEXT · `createdAt` TEXT |
+| `liabilities` | `id` TEXT PK · `name` TEXT · `amount` REAL · `currency` TEXT default 'THB' |
+| `liabilityTransactions` | `id` TEXT PK · `liabilityId` TEXT FK→liabilities.id CASCADE · `type` TEXT · `amount` REAL · `date` TEXT · `createdAt` TEXT |
+| `netWorthHistory` | `date` TEXT PK · `totalAssetsThb` REAL · `totalLiabilitiesThb` REAL · `netWorthThb` REAL · `fxRate` REAL? |
+| `priceCache` | `key` TEXT PK (`crypto:BTC`,`stock:AAPL`,`fx`) · `price` REAL · `chg24h` REAL default 0 · `currency` TEXT · `fetchedAt` TEXT |
+| `settings` | `key` TEXT PK · `value` TEXT |
+
+Drift table class names (PascalCase, no `s`): `Portfolios`, `Assets`, `Transactions`,
+`Liabilities`, `LiabilityTransactions`, `NetWorthHistory`, `PriceCache`, `Settings`.
+Drift DB class: `AppDatabase` in `lib/src/db/database.dart`, `schemaVersion => 1`.
+
+---
+
+## 3. Domain models (`lib/src/models/*.dart`, freezed)
+
+Plain immutable data classes mirroring the table columns 1:1 (same field names, `double` for money,
+enums for the enum columns). One freezed class per table row + JSON (`fromJson`/`toJson`) for
+export/import:
+
+`Portfolio`, `Asset`, `TransactionModel`, `Liability`, `LiabilityTransaction`,
+`NetWorthSnapshot`, `PriceCacheEntry`.
+
+> Note: the transaction model is named **`TransactionModel`** (not `Transaction`) to avoid
+> colliding with Drift's generated `Transaction` companion.
+
+---
+
+## 4. Domain calculators (`lib/src/domain/`) — plain inputs, no freezed/drift deps
+
+These are pure functions and take **plain** inputs so they compile independently of models/db.
+
+### 4.1 `position_calculator.dart`
+
+```dart
+class TxInput {                 // plain, not the freezed model
+  final double quantity;
+  final double price;
+  final double fee;
+  final String side;            // 'buy'|'sell'|'deposit'|'withdraw'
+  final String? date;           // 'YYYY-MM-DD' or null
+  const TxInput({required this.quantity, required this.price,
+                 this.fee = 0, required this.side, this.date});
+}
+
+class PositionSummary {
+  final double quantity;
+  final double avgCost;
+  final double totalCost;
+  final double realizedPnl;
+  final String direction;       // 'long'|'short'
+  const PositionSummary({...});
+}
+
+class PositionCalculator {
+  static PositionSummary calculate(List<TxInput> txs, {String direction = 'long'});
+}
+```
+
+### 4.2 `net_worth_calculator.dart`
+
+```dart
+class AssetInput {
+  final String type;            // 'crypto'|'th'|'us'|'fund'|'deposit'
+  final String currency;        // 'THB'|'USD'
+  final String direction;       // 'long'|'short'
+  final double? manualPrice;
+  final List<TxInput> txs;
+  final double price;           // resolved live/last price in the asset's NATIVE currency
+  final double chg24h;          // 24h % change
+}
+
+class NetWorthSummary {
+  final double totalAssetsThb, totalLiabilitiesThb, netWorthThb,
+               todayPlThb, totalCostThb, fx;
+}
+
+class LiabilityInput { final double amount; final String currency; } // 'THB'|'USD'
+
+class NetWorthCalculator {
+  static NetWorthSummary summary({
+    required List<AssetInput> assets,
+    required List<LiabilityInput> liabilities,
+    required double fx,
+  });
+}
+```
+
+### 4.3 `currency_converter.dart` / `formatters.dart`
+
+```dart
+class CurrencyConverter {
+  // native→THB base:  multiplier = currency=='USD' ? fx : 1
+  static double toThb(double amount, String currency, double fx);
+  static double convert(double amount, String from, String to, double fx); // via THB
+}
+
+class Formatters {
+  static String money(double v, {String currency = 'USD'});   // USD → 2dp, THB → 2dp, grouped
+  static String compact(double v);                            // 1.2K / 3.4M
+  static String pct(double v);                                // +1.23% / -0.50%
+}
+```
+
+---
+
+## 5. Price clients (`lib/src/prices/`)
+
+```dart
+class ApiError implements Exception { final String message; ApiError(this.message); }
+
+class CryptoPrice { final double usd, usdChg, thb, thbChg; }
+
+class BinanceClient {
+  BinanceClient(this.dio, {required this.getFx});   // getFx: Future<double> Function()
+  Future<Map<String,CryptoPrice>> getPrices(List<String> ids);   // ids e.g. ['BTC','ETH']
+}
+
+class StockQuote { final double price, chg; }       // chg = percent
+
+class YahooClient {
+  YahooClient(this.dio);
+  Future<StockQuote> getStockPrice(String symbol);  // TH stocks pass 'PTT.BK' etc.
+  Future<double> getFxRate();                        // from 'THB=X', fallback 35.84
+}
+
+class PricePoint { final int t; final double p; }   // t = epoch ms, p = price
+
+class PriceHistoryClient {
+  PriceHistoryClient(this.dio, {required this.getFx});
+  Future<List<PricePoint>> cryptoHistory(String coinId, int days);   // THB, Binance klines
+  Future<List<PricePoint>> stockHistory(String symbol, String range);// range '7D'|'1M'|'3M'|'1Y'
+}
+```
+
+Symbol regex (validate before hitting upstream): `^[A-Za-z0-9.\-^=]{1,15}$`. Reject → throw `ApiError`.
+
+---
+
+## 6. Theme tokens (`lib/src/ui/theme/`) — see `tasks/design-tokens.md` for values
+
+`colors.dart` (`AppColors`), `typography.dart` (`AppType`), `spacing.dart` (`AppSpacing`,
+`AppRadii`). Exact values in `tasks/design-tokens.md`.
