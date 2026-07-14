@@ -418,6 +418,36 @@ NetWorthHistoryData, Setting`. Each has `toJson()` and a `fromJson(Map)` factory
 }
 ```
 
+## 13. OverviewNotifier (`lib/src/state/overview_notifier.dart`, T2.08)
+
+Ties everything: resolve every asset's price → build `AssetInput`s → `NetWorthCalculator.summary` →
+expose summary + history + freshness. `refresh()` also records a daily snapshot.
+
+```dart
+final fxProvider = Provider<Future<double> Function()>(
+  (ref) => () async => YahooClient(Dio()).getFxRate());   // tests override with a constant
+
+@freezed abstract class OverviewState {                    // abstract!
+  NetWorthSummary? summary;
+  List<NetWorthHistoryData> history;
+  String? asOf;        // ISO of last compute, null before first
+  bool offline;        // true if any market asset resolved from 'cache' or 'none'
+}
+@riverpod class OverviewNotifier extends _$OverviewNotifier {   // provider → overviewProvider
+  FutureOr<OverviewState> build();     // compute summary (resolve prices) + load history; NO snapshot
+  Future<void> refresh();              // rebuild, then upsert today's snapshot, then reload history
+}
+```
+`build()`: for each portfolio→asset, map txs→`TxInput`, `rp = await priceRepo.resolve(asset)`
+(offline if `rp.source` is `'cache'`/`'none'`), `AssetInput(type,currency,direction,manualPrice,
+txs, price: rp.price, chg24h: rp.chg24h)`; liabilities → `LiabilityInput(amount,currency)`;
+`fx = await ref.read(fxProvider)()`; `summary = NetWorthCalculator.summary(assets:…, liabilities:…, fx:fx)`;
+`history = await miscDao.history()`; `asOf = DateTime.now().toUtc().toIso8601String()`.
+`refresh()`: `ref.invalidateSelf(); final st = await future;` then if `st.summary != null`
+`await miscDao.upsertSnapshot(NetWorthHistoryData(date: <today YYYY-MM-DD>, totalAssetsThb:…,
+totalLiabilitiesThb:…, netWorthThb:…, fxRate: Value(summary.fx)))` — NB `NetWorthHistoryData`
+constructor uses `fxRate:` (nullable) — pass the double directly; then `ref.invalidateSelf(); await future;`.
+
 ### 10.4 Notifier test harness (all notifier tasks)
 ```dart
 final db = AppDatabase(NativeDatabase.memory());
