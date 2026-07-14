@@ -176,3 +176,100 @@ Symbol regex (validate before hitting upstream): `^[A-Za-z0-9.\-^=]{1,15}$`. Rej
 
 `colors.dart` (`AppColors`), `typography.dart` (`AppType`), `spacing.dart` (`AppSpacing`,
 `AppRadii`). Exact values in `tasks/design-tokens.md`.
+
+---
+
+# CONTRACTS — Phase 2 (repos + Riverpod notifiers) — frozen
+
+Added for Phase 2 (T2.01–T2.09). Same rule: dispatched tasks implement these **exactly**.
+
+## 7. Riverpod & data conventions
+
+- **In-app domain type = the Drift row class** (`Portfolio`, `Asset`, `Transaction`, `Liability`,
+  `LiabilityTransaction`, `NetWorthHistoryData`, `PriceCacheData`). Repos take/return these.
+  Enum columns are plain `String` on the row (the `wire` value, e.g. `'crypto'`, `'USD'`).
+  The **freezed models** (§3) are used **only** by `BackupRepo` for JSON export/import.
+- **IDs / times** (repos only — keep calculators pure): `id = const Uuid().v4()`;
+  `createdAt = DateTime.now().toUtc().toIso8601String()`; `date` (when defaulted) =
+  `DateTime.now().toIso8601String().substring(0,10)`.
+- **Notifiers**: `@riverpod` codegen, async. `part 'x_notifier.g.dart';` · class
+  `XNotifier extends _$XNotifier` with `FutureOr<XState> build()`. Generated provider =
+  `xNotifierProvider`. State is a **freezed** class in the same file.
+- **Mutation pattern** (no stream watching in Phase 2): every mutating method does
+  `await _repo.doThing(...); ref.invalidateSelf(); await future;` — deterministic and easy to test.
+- **Infra providers** are plain (not codegen). Tests override `appDatabaseProvider` with an
+  in-memory `AppDatabase(NativeDatabase.memory())` and read state via
+  `container.read(xNotifierProvider.future)`.
+- Run `dart run build_runner build` after editing any freezed/`@riverpod` file; commit generated
+  `.g.dart` / `.freezed.dart`.
+
+### 7.1 Infra providers — `lib/src/state/providers.dart` (owned by T2.01)
+
+```dart
+final appDatabaseProvider = Provider<AppDatabase>(
+  (ref) => throw UnimplementedError('override in main() / tests'));
+final portfolioAssetDaoProvider = Provider((ref) => PortfolioAssetDao(ref.watch(appDatabaseProvider)));
+final transactionDaoProvider    = Provider((ref) => TransactionDao(ref.watch(appDatabaseProvider)));
+final liabilityDaoProvider      = Provider((ref) => LiabilityDao(ref.watch(appDatabaseProvider)));
+final miscDaoProvider           = Provider((ref) => MiscDao(ref.watch(appDatabaseProvider)));
+```
+Each repo file declares its **own** repo provider at the bottom, reading the DAO provider (so tasks
+never edit a file another task owns):
+`final portfolioRepoProvider = Provider((ref) => PortfolioRepo(ref.watch(portfolioAssetDaoProvider)));`
+— likewise `assetRepoProvider`, `transactionRepoProvider`, `liabilityRepoProvider`,
+`settingsRepoProvider`, `backupRepoProvider`, `priceRepositoryProvider`.
+
+## 8. Validation (enforced in repos — throw `ArgumentError` on violation)
+
+name (trimmed) non-empty · portfolio `color` in 0..5 · asset `symbol` (trimmed) non-empty ·
+`currency` ∈ {`THB`,`USD`} · `type` ∈ {crypto,th,us,fund,deposit} · `direction` ∈ {long,short} ·
+tx `quantity` > 0 · `price` ≥ 0 · `fee` ≥ 0 · liability/adjust `amount` > 0 · `manualPrice`
+(if given) ≥ 0. **Asset `currency` is locked after create** (`AssetRepo.save` reads the stored
+row and throws if currency differs).
+
+## 9. Repo signatures (Drift rows in/out)
+
+DAOs are upsert-only (`insertOnConflictUpdate`) with no single-row get; repos therefore build full
+rows for `save` and locate existing rows via the DAO's list methods. **T2.01 adds one method**
+`Future<List<Asset>> allAssets()` to `PortfolioAssetDao` (`db.select(db.assets).get()`) — the only
+permitted Phase-1-file edit; everything else stays in Phase-2 files.
+
+```dart
+// T2.01
+class PortfolioRepo {                       // ctor(PortfolioAssetDao dao)
+  Future<Portfolio> create({required String name, required int color});   // sortOrder = current count
+  Future<void> save(Portfolio p);           // validates; upsert full row
+  Future<void> remove(String id);
+  Future<void> reorder(List<String> idsInOrder);
+  Future<List<Portfolio>> all();
+}
+class AssetRepo {                           // ctor(PortfolioAssetDao dao)
+  Future<Asset> create({required String portfolioId, required String type, required String symbol,
+    required String name, required String currency, String? cgId, String? yahooSymbol,
+    double? manualPrice, String direction = 'long'});                     // sortOrder = count in portfolio
+  Future<void> save(Asset a);               // validates; currency-lock check; upsert full row
+  Future<void> remove(String id);
+  Future<List<Asset>> allFor(String portfolioId);
+  Future<List<Asset>> all();
+}
+// T2.03
+class TransactionRepo {                     // ctor(TransactionDao dao)
+  Future<Transaction> add({required String assetId, required String side, required double quantity,
+    required double price, double fee = 0, required String date});        // id+createdAt generated
+  Future<void> save(Transaction t);
+  Future<void> remove(String id);
+  Future<List<Transaction>> byAsset(String assetId);
+  Future<List<Transaction>> all();
+}
+// T2.05  (adjust ports liabilities.service.ts#adjust: next = pay? amt-a : amt+a, clamp max(0,·),
+//         write liability_transaction + updated liability in ONE db.transaction)
+class LiabilityRepo {                        // ctor(LiabilityDao dao)
+  Future<Liability> create({required String name, required double amount, required String currency});
+  Future<void> save(Liability l);
+  Future<void> remove(String id);
+  Future<void> adjust({required String liabilityId, required String type, required double amount,
+    required String date});                  // type 'pay'|'add'
+  Future<List<Liability>> all();
+  Future<List<LiabilityTransaction>> txsFor(String liabilityId);
+}
+```

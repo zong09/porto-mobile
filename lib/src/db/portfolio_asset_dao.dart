@@ -54,4 +54,6 @@ class PortfolioAssetDao {
 
   Future<void> deleteAsset(String id) =>
       (db.delete(db.assets)..where((t) => t.id.equals(id))).go();
+
+  Future<List<Asset>> allAssets() => db.select(db.assets).get();
 }
