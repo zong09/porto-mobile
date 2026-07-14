@@ -380,6 +380,44 @@ final priceRepositoryProvider = Provider((ref) => PriceRepository(
 `PriceCacheData` fields: `key, price, chg24h, currency, fetchedAt`. `PriceCacheCompanion.insert`
 requires `key, price, currency, fetchedAt`; `chg24h` is `Value<double>` (default 0).
 
+## 12. Settings + Backup (T2.09)
+
+```dart
+// repos/settings_repo.dart
+class SettingsRepo {                    // ctor(MiscDao dao)
+  Future<String> getDisplayCurrency();  // dao.getSetting('displayCurrency') ?? 'USD'
+  Future<void> setDisplayCurrency(String v);  // validate {THB,USD}; dao.setSetting
+  Future<String> getLanguage();         // ?? 'th'
+  Future<void> setLanguage(String v);   // validate {th,en}
+}
+final settingsRepoProvider = Provider((ref) => SettingsRepo(ref.watch(miscDaoProvider)));
+
+// repos/backup_repo.dart — uses drift's built-in row.toJson()/DataClass.fromJson()
+class BackupRepo {                       // ctor(AppDatabase db)
+  Future<Map<String, dynamic>> exportJson();   // {'version':1, 'portfolios':[...], 'assets':[...],
+    // 'transactions':[...], 'liabilities':[...], 'liabilityTransactions':[...],
+    // 'netWorthHistory':[...], 'settings':[...]}  (price_cache excluded — ephemeral)
+  Future<void> importJson(Map<String, dynamic> data);  // one db.transaction: wipe (children first)
+    // then insert in FK order: portfolios→assets→transactions; liabilities→liabilityTransactions;
+    // netWorthHistory; settings. Rebuild rows via <DataClass>.fromJson(m).toCompanion(true).
+}
+final backupRepoProvider = Provider((ref) => BackupRepo(ref.watch(appDatabaseProvider)));
+```
+Drift data-class names: `Portfolio, Asset, Transaction, Liability, LiabilityTransaction,
+NetWorthHistoryData, Setting`. Each has `toJson()` and a `fromJson(Map)` factory.
+
+`state/settings_notifier.dart`:
+```dart
+@freezed abstract class SettingsState { String displayCurrency; String language; }  // abstract!
+@riverpod class SettingsNotifier extends _$SettingsNotifier {   // provider → settingsProvider
+  FutureOr<SettingsState> build();   // load both from SettingsRepo
+  Future<void> setCurrency(String v);
+  Future<void> setLanguage(String v);
+  Future<Map<String,dynamic>> exportToJson();          // ref.read(backupRepoProvider).exportJson()
+  Future<void> importFromJson(Map<String,dynamic> d);  // backupRepo.importJson(d); then invalidateSelf
+}
+```
+
 ### 10.4 Notifier test harness (all notifier tasks)
 ```dart
 final db = AppDatabase(NativeDatabase.memory());
