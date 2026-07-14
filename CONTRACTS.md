@@ -193,8 +193,11 @@ Added for Phase 2 (T2.01–T2.09). Same rule: dispatched tasks implement these *
   `createdAt = DateTime.now().toUtc().toIso8601String()`; `date` (when defaulted) =
   `DateTime.now().toIso8601String().substring(0,10)`.
 - **Notifiers**: `@riverpod` codegen, async. `part 'x_notifier.g.dart';` · class
-  `XNotifier extends _$XNotifier` with `FutureOr<XState> build()`. Generated provider =
-  `xNotifierProvider`. State is a **freezed** class in the same file.
+  `XNotifier extends _$XNotifier` with `FutureOr<XState> build()`. **The generator strips the
+  `Notifier` suffix**: `LiabilitiesNotifier` → provider `liabilitiesProvider`,
+  `PortfoliosNotifier` → `portfoliosProvider`, `TransactionsNotifier` → `transactionsProvider`,
+  `OverviewNotifier` → `overviewProvider`, `SettingsNotifier` → `settingsProvider`. State is an
+  **`abstract` freezed class** (freezed 3.x requires `abstract class X with _$X`) in the same file.
 - **Mutation pattern** (no stream watching in Phase 2): every mutating method does
   `await _repo.doThing(...); ref.invalidateSelf(); await future;` — deterministic and easy to test.
 - **Infra providers** are plain (not codegen). Tests override `appDatabaseProvider` with an
@@ -272,4 +275,73 @@ class LiabilityRepo {                        // ctor(LiabilityDao dao)
   Future<List<Liability>> all();
   Future<List<LiabilityTransaction>> txsFor(String liabilityId);
 }
+```
+
+## 10. Notifier states & methods (freezed state + `@riverpod` async notifier)
+
+Each notifier file has BOTH `part 'x_notifier.freezed.dart';` and `part 'x_notifier.g.dart';`.
+`build()` loads once; every mutation ends with `ref.invalidateSelf(); await future;`. State classes
+hold Drift rows + domain results (no JSON needed — in-memory only).
+
+### 10.1 `state/portfolios_notifier.dart` (T2.02) — deps: portfolioRepo, assetRepo, transactionRepo, PositionCalculator
+```dart
+@freezed class AssetNode      { Asset asset; PositionSummary position; }
+@freezed class PortfolioNode  { Portfolio portfolio; List<AssetNode> assets; }
+@freezed class PortfoliosState{ List<PortfolioNode> nodes; }
+@riverpod class PortfoliosNotifier extends _$PortfoliosNotifier {
+  FutureOr<PortfoliosState> build();     // for each portfolio → assets → PositionCalculator over its txs
+  Future<void> addPortfolio({required String name, required int color});
+  Future<void> renamePortfolio(String id, String name);   // load row, copyWith, repo.save
+  Future<void> recolorPortfolio(String id, int color);
+  Future<void> deletePortfolio(String id);
+  Future<void> reorderPortfolios(List<String> ids);
+  Future<void> addAsset({required String portfolioId, required String type, required String symbol,
+    required String name, required String currency, String? cgId, String? yahooSymbol,
+    double? manualPrice, String direction = 'long'});
+  Future<void> saveAsset(Asset asset);
+  Future<void> deleteAsset(String id);
+}
+```
+`build()` maps each tx to `TxInput(quantity, price, fee, side, date)` and calls
+`PositionCalculator.calculate(inputs, direction: asset.direction)`.
+
+### 10.2 `state/transactions_notifier.dart` (T2.04) — deps: transactionRepo, assetRepo
+```dart
+@freezed class TxRow           { Transaction tx; Asset asset; }
+@freezed class TxGroup         { String date; List<TxRow> rows; }
+@freezed class TransactionsState { List<TxGroup> groups; }
+@riverpod class TransactionsNotifier extends _$TransactionsNotifier {
+  FutureOr<TransactionsState> build();   // all txs, join asset by id, group by date
+  Future<void> addTransaction({required String assetId, required String side,
+    required double quantity, required double price, double fee = 0, required String date});
+  Future<void> saveTransaction(Transaction t);
+  Future<void> deleteTransaction(String id);
+}
+```
+`build()`: assets = `assetRepo.all()` → `{id: asset}`; txs = `transactionRepo.all()`; sort txs by
+`date` DESC then `createdAt` DESC; group consecutive equal `date` into `TxGroup`; each `TxRow.asset`
+is the joined asset (skip a tx whose asset is missing — shouldn't happen under FK).
+
+### 10.3 `state/liabilities_notifier.dart` (T2.06) — deps: liabilityRepo
+```dart
+@freezed class LiabilitiesState { List<Liability> liabilities; }
+@riverpod class LiabilitiesNotifier extends _$LiabilitiesNotifier {
+  FutureOr<LiabilitiesState> build();    // liabilityRepo.all()
+  Future<void> addLiability({required String name, required double amount, required String currency});
+  Future<void> saveLiability(Liability l);
+  Future<void> deleteLiability(String id);
+  Future<void> adjust({required String liabilityId, required String type, required double amount,
+    required String date});
+}
+```
+
+### 10.4 Notifier test harness (all notifier tasks)
+```dart
+final db = AppDatabase(NativeDatabase.memory());
+final container = ProviderContainer(overrides: [appDatabaseProvider.overrideWithValue(db)]);
+addTearDown(container.dispose); addTearDown(db.close);
+final n = container.read(xProvider.notifier);   // xProvider = suffix-stripped name (see §7)
+await n.addPortfolio(name: 'Main', color: 0);
+final state = await container.read(xProvider.future);   // re-read after mutation
+// Use `late` + per-test setUp/tearDown for a FRESH db+container each test (state must not leak).
 ```
