@@ -335,6 +335,51 @@ is the joined asset (skip a tx whose asset is missing — shouldn't happen under
 }
 ```
 
+## 11. PriceRepository (`lib/src/prices/price_repository.dart`, T2.07)
+
+Resolves an asset's current price in its **native** currency + 24h change, with a TTL'd DB cache
+(`price_cache`) and a fallback chain. Clients do NOT cache internally, so the TTL lives here.
+
+```dart
+class ResolvedPrice {
+  final double price;      // native currency
+  final double chg24h;     // percent
+  final String source;     // 'fixed' | 'manual' | 'cache' | 'live' | 'none'
+  const ResolvedPrice(this.price, this.chg24h, this.source);
+}
+
+class PriceRepository {
+  PriceRepository(this.dao, this.binance, this.yahoo, {DateTime Function()? now});
+  // deps: MiscDao dao, BinanceClient binance, YahooClient yahoo; clock defaults to DateTime.now
+  Future<ResolvedPrice> resolve(Asset asset);
+}
+final priceRepositoryProvider = Provider((ref) => PriceRepository(
+  ref.watch(miscDaoProvider),
+  BinanceClient(Dio(), getFx: () async => YahooClient(Dio()).getFxRate()),
+  YahooClient(Dio())));
+```
+
+**resolve(asset) algorithm** (cache key: `crypto:<symbol>` ttl 60s · `stock:<symbol>` ttl 90s):
+1. `deposit` → `ResolvedPrice(1, 0, 'fixed')`.
+2. `fund`    → `ResolvedPrice(asset.manualPrice ?? 0, 0, 'manual')`.
+3. crypto/th/us:
+   a. `cached = await dao.getPrice(key)`. If cached != null and
+      `now().difference(DateTime.parse(cached.fetchedAt)) < ttl` → `ResolvedPrice(cached.price, cached.chg24h, 'cache')`.
+   b. else try live:
+      - crypto: `cp = (await binance.getPrices([asset.symbol]))[asset.symbol]`; if null → throw;
+        `native = asset.currency=='USD' ? cp.usd : cp.thb`; `chg = asset.currency=='USD' ? cp.usdChg : cp.thbChg`.
+      - stock: `ysym = asset.yahooSymbol ?? (asset.type=='th' ? '${asset.symbol}.BK' : asset.symbol)`;
+        `q = await yahoo.getStockPrice(ysym)`; `native = q.price`; `chg = q.chg`.
+      - on success: `await dao.putPrice(PriceCacheCompanion.insert(key: key, price: native,
+        chg24h: Value(chg), currency: asset.currency, fetchedAt: now().toUtc().toIso8601String()))`;
+        return `ResolvedPrice(native, chg, 'live')`.
+   c. on ANY exception in (b): if `cached != null` → `ResolvedPrice(cached.price, cached.chg24h, 'cache')`;
+      else if `asset.manualPrice != null` → `ResolvedPrice(asset.manualPrice!, 0, 'manual')`;
+      else `ResolvedPrice(0, 0, 'none')`.
+
+`PriceCacheData` fields: `key, price, chg24h, currency, fetchedAt`. `PriceCacheCompanion.insert`
+requires `key, price, currency, fetchedAt`; `chg24h` is `Value<double>` (default 0).
+
 ### 10.4 Notifier test harness (all notifier tasks)
 ```dart
 final db = AppDatabase(NativeDatabase.memory());
