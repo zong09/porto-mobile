@@ -4,6 +4,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porto_mobile/src/db/database.dart';
 import 'package:porto_mobile/src/domain/net_worth_calculator.dart';
 import 'package:porto_mobile/src/state/overview_notifier.dart';
+import 'package:porto_mobile/src/state/portfolios_notifier.dart';
+import 'package:porto_mobile/src/state/transactions_notifier.dart';
+import 'package:porto_mobile/src/state/liabilities_notifier.dart';
+import 'package:porto_mobile/src/state/settings_notifier.dart';
 import 'package:porto_mobile/src/ui/app_shell.dart';
 import 'package:porto_mobile/src/ui/screens/overview.dart';
 import 'package:porto_mobile/src/ui/widgets/app_bottom_nav.dart';
@@ -49,13 +53,43 @@ class _FakeOverview extends OverviewNotifier {
   Future<OverviewState> build() async => _s;
 }
 
+// Empty-state fakes for the other three tabs the shell builds in its
+// IndexedStack (each would otherwise hit the DB).
+class _FakePortfolios extends PortfoliosNotifier {
+  @override
+  Future<PortfoliosState> build() async => const PortfoliosState(nodes: []);
+}
+
+class _FakeTx extends TransactionsNotifier {
+  @override
+  Future<TransactionsState> build() async => const TransactionsState(groups: []);
+}
+
+class _FakeLiabilities extends LiabilitiesNotifier {
+  @override
+  Future<LiabilitiesState> build() async =>
+      const LiabilitiesState(liabilities: []);
+}
+
+class _FakeSettings extends SettingsNotifier {
+  @override
+  Future<SettingsState> build() async =>
+      const SettingsState(displayCurrency: 'USD', language: 'th');
+}
+
 Widget _app(OverviewState s) => ProviderScope(
       overrides: [overviewProvider.overrideWith(() => _FakeOverview(s))],
       child: const MaterialApp(home: OverviewScreen()),
     );
 
 Widget _appShell(OverviewState s) => ProviderScope(
-      overrides: [overviewProvider.overrideWith(() => _FakeOverview(s))],
+      overrides: [
+        overviewProvider.overrideWith(() => _FakeOverview(s)),
+        portfoliosProvider.overrideWith(() => _FakePortfolios()),
+        transactionsProvider.overrideWith(() => _FakeTx()),
+        liabilitiesProvider.overrideWith(() => _FakeLiabilities()),
+        settingsProvider.overrideWith(() => _FakeSettings()),
+      ],
       child: const MaterialApp(home: AppShell()),
     );
 

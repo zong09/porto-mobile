@@ -11,7 +11,11 @@ import '../widgets/cards.dart';
 /// Overview screen — gradient hero with net-worth, area chart, stat trio,
 /// and portfolio list. Watches [overviewProvider] and renders fake state.
 class OverviewScreen extends ConsumerWidget {
-  const OverviewScreen({super.key});
+  /// Called when the Liabilities stat card is tapped (wired in T4.1 to push
+  /// the Liabilities screen). Null → no-op.
+  final VoidCallback? onOpenLiabilities;
+
+  const OverviewScreen({super.key, this.onOpenLiabilities});
 
   // ── hero ─────────────────────────────────────────────────────────────
 
@@ -194,6 +198,7 @@ class OverviewScreen extends ConsumerWidget {
                         chartPoints: chartPoints,
                         offline: st.offline,
                         asOf: st.asOf,
+                        onOpenLiabilities: onOpenLiabilities,
                       ),
 
                       const SizedBox(height: 13),
