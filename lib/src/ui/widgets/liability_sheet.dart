@@ -1,11 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../models/models.dart';
+import '../../db/database.dart';
+import '../../domain/formatters.dart';
 import '../../state/liabilities_notifier.dart';
-import '../../state/providers.dart';
 import '../theme/colors.dart';
-import 'sheet_shell.dart';
 
 /// Adjust sheet — pay / add for an existing liability.
 class LiabilityAdjustSheet extends ConsumerStatefulWidget {
@@ -46,7 +45,7 @@ class _LiabilityAdjustSheetState
 
   @override
   Widget build(BuildContext context) {
-    final currency = widget.liability.currency.wire;
+    final currency = widget.liability.currency;
     final suffix = currency == 'THB' ? '฿' : r'$';
 
     return Column(
@@ -72,7 +71,7 @@ class _LiabilityAdjustSheetState
                 ),
               ),
               Text(
-                '${Formatters.money(widget.liability.amount, currency: currency)}',
+                Formatters.money(widget.liability.amount, currency: currency),
                 style: const TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w700,
@@ -103,9 +102,11 @@ class _LiabilityAdjustSheetState
           padding: const EdgeInsets.all(3),
           child: Row(
             children: [
-              _segmentedPill('จ่าย (pay)', _type == 'pay'),
+              _segmentedPill('จ่าย (pay)', _type == 'pay',
+                  () => setState(() => _type = 'pay')),
               const SizedBox(width: 3),
-              _segmentedPill('เพิ่่ม (add)', _type == 'add'),
+              _segmentedPill('เพิ่่ม (add)', _type == 'add',
+                  () => setState(() => _type = 'add')),
             ],
           ),
         ),
@@ -197,21 +198,25 @@ class _LiabilityAdjustSheetState
     );
   }
 
-  Widget _segmentedPill(String label, bool active) {
+  Widget _segmentedPill(String label, bool active, VoidCallback onTap) {
     return Expanded(
-      child: Container(
-        decoration: BoxDecoration(
-          color: active ? AppColors.text : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        padding: const EdgeInsets.symmetric(vertical: 9),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              color: active ? AppColors.bg : AppColors.muted,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          decoration: BoxDecoration(
+            color: active ? AppColors.text : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: active ? AppColors.bg : AppColors.muted,
+              ),
             ),
           ),
         ),
@@ -233,7 +238,7 @@ class _LiabilityCreateSheetState
     extends ConsumerState<LiabilityCreateSheet> {
   final _nameCtrl = TextEditingController();
   final _amountCtrl = TextEditingController();
-  Currency _currency = Currency.thb;
+  String _currency = 'THB';
 
   @override
   void dispose() {
@@ -251,7 +256,7 @@ class _LiabilityCreateSheetState
         .addLiability(
           name: name,
           amount: amt,
-          currency: _currency.wire,
+          currency: _currency,
         );
     Navigator.of(context).pop();
   }
@@ -299,7 +304,7 @@ class _LiabilityCreateSheetState
           keyboardType: const TextInputType.numberWithOptions(decimal: true),
           decoration: InputDecoration(
             hintText: '0.00',
-            suffixText: _currency == Currency.thb ? '฿' : r'$',
+            suffixText: _currency == 'THB' ? '฿' : r'$',
             border: OutlineInputBorder(
               borderRadius: BorderRadius.circular(12),
             ),
@@ -326,8 +331,10 @@ class _LiabilityCreateSheetState
           padding: const EdgeInsets.all(3),
           child: Row(
             children: [
-              _currencyPill('฿ THB', _currency == Currency.thb),
-              _currencyPill('$ USD', _currency == Currency.usd),
+              _currencyPill('฿ THB', _currency == 'THB',
+                  () => setState(() => _currency = 'THB')),
+              _currencyPill(r'$ USD', _currency == 'USD',
+                  () => setState(() => _currency = 'USD')),
             ],
           ),
         ),
@@ -360,21 +367,25 @@ class _LiabilityCreateSheetState
     );
   }
 
-  Widget _currencyPill(String label, bool active) {
+  Widget _currencyPill(String label, bool active, VoidCallback onTap) {
     return Expanded(
-      child: Container(
-        decoration: BoxDecoration(
-          color: active ? AppColors.text : Colors.transparent,
-          borderRadius: BorderRadius.circular(12),
-        ),
-        padding: const EdgeInsets.symmetric(vertical: 9),
-        child: Center(
-          child: Text(
-            label,
-            style: TextStyle(
-              fontSize: 12.5,
-              fontWeight: FontWeight.w600,
-              color: active ? AppColors.bg : AppColors.muted,
+      child: GestureDetector(
+        onTap: onTap,
+        behavior: HitTestBehavior.opaque,
+        child: Container(
+          decoration: BoxDecoration(
+            color: active ? AppColors.text : Colors.transparent,
+            borderRadius: BorderRadius.circular(12),
+          ),
+          padding: const EdgeInsets.symmetric(vertical: 9),
+          child: Center(
+            child: Text(
+              label,
+              style: TextStyle(
+                fontSize: 12.5,
+                fontWeight: FontWeight.w600,
+                color: active ? AppColors.bg : AppColors.muted,
+              ),
             ),
           ),
         ),

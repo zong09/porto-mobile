@@ -6,6 +6,7 @@ import '../../state/liabilities_notifier.dart';
 import '../theme/colors.dart';
 import '../widgets/cards.dart';
 import '../widgets/liability_sheet.dart';
+import '../widgets/sheet_shell.dart';
 
 /// Liabilities sub-screen — gradient hero with total + liability cards.
 ///
@@ -181,11 +182,11 @@ class LiabilitiesScreen extends ConsumerWidget {
                                     ),
                                   ),
                                   title: l.name,
-                                  subtitle: l.currency.wire,
+                                  subtitle: l.currency,
                                   trailing: Text(
                                     Formatters.money(
                                       l.amount,
-                                      currency: l.currency.wire,
+                                      currency: l.currency,
                                     ),
                                     style: const TextStyle(
                                       fontSize: 15,
@@ -226,8 +227,6 @@ class LiabilitiesScreen extends ConsumerWidget {
                                   ),
                                   borderRadius:
                                       BorderRadius.circular(18),
-                                  borderStyle:
-                                      BorderStyle.solid,
                                 ),
                                 padding:
                                     const EdgeInsets.symmetric(

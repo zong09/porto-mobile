@@ -1,10 +1,17 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:porto_mobile/src/domain/position_calculator.dart';
 import 'package:porto_mobile/src/state/portfolios_notifier.dart';
 import 'package:porto_mobile/src/ui/theme/colors.dart';
+import 'package:porto_mobile/src/ui/widgets/area_chart.dart';
 import 'package:porto_mobile/src/ui/widgets/cards.dart';
 import 'package:porto_mobile/src/ui/widgets/donut_chart.dart';
+
+/// Maps an asset type wire string to its palette index (crypto=0 … deposit=4).
+int _assetTypeIndex(String type) {
+  const order = ['crypto', 'th', 'us', 'fund', 'deposit'];
+  final i = order.indexOf(type);
+  return i < 0 ? 0 : i;
+}
 
 // -----------------------------------------------------------------------------
 // PortfoliosScreen  —  list view (ConsumerWidget)
@@ -16,7 +23,7 @@ class PortfoliosScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(portfoliosProvider);
-    final nodes = state.nodes;
+    final nodes = state.value?.nodes ?? const <PortfolioNode>[];
 
     // Total cost basis across all portfolios
     final totalCost = nodes.fold<double>(
@@ -296,7 +303,7 @@ class PortfolioDetailScreen extends StatelessWidget {
                           vertical: 13,
                         ),
                         decoration: BoxDecoration(
-                          color: const Color(0xFFE9DB),
+                          color: const Color(0xFFFFE9DB),
                           borderRadius: BorderRadius.circular(18),
                         ),
                         child: Row(
@@ -429,7 +436,7 @@ class _AssetAllocationBar extends StatelessWidget {
               return Expanded(
                 flex: (pct * 100).toInt().clamp(0, 100),
                 child: Container(
-                  color: AppColors.palette[an.asset.type.index],
+                  color: AppColors.palette[_assetTypeIndex(an.asset.type)],
                 ),
               );
             }).toList(),
@@ -481,7 +488,7 @@ class _PortfolioCard extends StatelessWidget {
             width: 42,
             height: 42,
             decoration: BoxDecoration(
-              color: AppColors.palette[portfolio.color].withOpacity(0.2),
+              color: AppColors.palette[portfolio.color].withValues(alpha: 0.2),
               borderRadius: BorderRadius.circular(14),
             ),
             child: DonutChart(
@@ -490,7 +497,7 @@ class _PortfolioCard extends StatelessWidget {
                   : assets
                       .map((an) => DonutSlice(
                             an.position.totalCost,
-                            AppColors.palette[an.asset.type.index],
+                            AppColors.palette[_assetTypeIndex(an.asset.type)],
                           ))
                       .toList(),
               strokeFraction: 0.34,
@@ -565,7 +572,7 @@ class _FeaturedAssetCard extends StatelessWidget {
     final an = assetNode;
     final asset = an.asset;
     final pos = an.position;
-    final typeIndex = asset.type.index;
+    final typeIndex = _assetTypeIndex(asset.type);
 
     return PlainCard(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -579,7 +586,7 @@ class _FeaturedAssetCard extends StatelessWidget {
                 width: 38,
                 height: 38,
                 decoration: BoxDecoration(
-                  color: AppColors.palette[typeIndex].withOpacity(0.2),
+                  color: AppColors.palette[typeIndex].withValues(alpha: 0.2),
                   borderRadius: BorderRadius.circular(12),
                 ),
                 child: Center(
@@ -717,14 +724,14 @@ class _AssetRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final asset = an.asset;
     final pos = an.position;
-    final typeIndex = asset.type.index;
+    final typeIndex = _assetTypeIndex(asset.type);
 
     return ListRowTile(
       leading: Container(
         width: 38,
         height: 38,
         decoration: BoxDecoration(
-          color: AppColors.palette[typeIndex].withOpacity(0.2),
+          color: AppColors.palette[typeIndex].withValues(alpha: 0.2),
           borderRadius: BorderRadius.circular(12),
         ),
         child: Center(
