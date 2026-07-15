@@ -65,6 +65,7 @@ void main() {
             ),
           ),
         );
+        await tester.pumpAndSettle();
 
         expect(find.text('ตั้้งค่า'), findsOneWidget);
         expect(find.text('฿ THB'), findsOneWidget);
@@ -87,6 +88,7 @@ void main() {
             ),
           ),
         );
+        await tester.pumpAndSettle();
 
         // Verify initial display
         expect(find.text('฿ THB'), findsOneWidget);
@@ -115,14 +117,17 @@ void main() {
             onImport: () => importFired = true,
           ),
         );
+        await tester.pumpAndSettle();
 
         // Tap export row
-        await tester.tap(find.text('สำรองข้อมลลงไฟล'));
+        await tester.ensureVisible(find.text('สำรองข้อมูลลงไฟล'));
+        await tester.tap(find.text('สำรองข้อมูลลงไฟล'));
         await tester.pump();
         expect(exportFired, isTrue);
 
         // Tap import row
-        await tester.tap(find.text('นำเข้าข้อมล'));
+        await tester.ensureVisible(find.text('นำเข้าข้อมูล'));
+        await tester.tap(find.text('นำเข้าข้อมูล'));
         await tester.pump();
         expect(importFired, isTrue);
       });
@@ -173,7 +178,7 @@ void main() {
           ),
         );
 
-        expect(find.text('ไมมมข้อมลราคายอนหลง'), findsOneWidget);
+        expect(find.text('ไมมมีข้อมลราคายอนหลง'), findsOneWidget);
         expect(find.byType(AreaChart), findsNothing);
       });
 }

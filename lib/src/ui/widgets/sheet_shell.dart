@@ -64,8 +64,9 @@ class SheetShell extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 14),
-          // Content
-          child,
+          // Content (Flexible so a scrollable child is bounded and scrolls
+          // instead of overflowing the min-height column)
+          Flexible(child: child),
         ],
       ),
     );

@@ -440,6 +440,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
           child: TextField(
             controller: controller,
             keyboardType: TextInputType.numberWithOptions(decimal: true),
+            onChanged: (_) => setState(() {}),
             decoration: InputDecoration(
               hintText: '0.00',
               suffixText: suffix,

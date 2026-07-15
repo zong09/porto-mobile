@@ -20,6 +20,7 @@ class _TransactionsScreenState
   String _filter = 'all'; // all | buy | sell | deposit-withdraw
 
   static const _pillLabels = ['ทั้งหมด', 'ซื้้่อ', 'ขาย', 'ฝาก/ถอน'];
+  static const _filterKeys = ['all', 'buy', 'sell', 'deposit-withdraw'];
 
   int _activePill = 0;
 
@@ -50,16 +51,6 @@ class _TransactionsScreenState
             style: const TextStyle(
               fontSize: 12.5,
               color: Color(0xCCFAF5EC), // rgba(250,245,236,0.8)
-            ),
-          ),
-
-          // Filter pills
-          const SizedBox(height: 12),
-          Row(
-            spacing: 7,
-            children: List.generate(
-              _pillLabels.length,
-              (i) => _filterPill(_pillLabels[i], i == 0),
             ),
           ),
         ],
@@ -208,55 +199,64 @@ class _TransactionsScreenState
           }
         }
 
-        return Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [
-                Color(0xFFEC6530),
-                Color(0xFFC24A1E),
-                Color(0xFF9A3614),
-              ],
-            ),
-          ),
-          child: Column(
-            children: [
-              // Hero on gradient
-              _hero(buySellTotals: totals.entries.toList()),
-
-              // Filter pills (with local state)
-              Padding(
-                padding:
-                    const EdgeInsets.only(left: 22, right: 22, bottom: 12),
-                child: Row(
-                  spacing: 7,
-                  children: List.generate(
-                    _pillLabels.length,
-                    (i) => _filterPill(_pillLabels[i], _activePill == i),
-                  ),
-                ),
+        return Material(
+          type: MaterialType.transparency,
+          child: Container(
+            decoration: const BoxDecoration(
+              gradient: LinearGradient(
+                begin: Alignment.topCenter,
+                end: Alignment.bottomCenter,
+                colors: [
+                  Color(0xFFEC6530),
+                  Color(0xFFC24A1E),
+                  Color(0xFF9A3614),
+                ],
               ),
+            ),
+            child: Column(
+              children: [
+                // Hero on gradient
+                _hero(buySellTotals: totals.entries.toList()),
 
-              // Cream sheet
-              Expanded(
-                child: Container(
-                  width: double.infinity,
-                  decoration: const BoxDecoration(
-                    color: AppColors.bg,
-                    borderRadius:
-                        BorderRadius.vertical(top: Radius.circular(30)),
-                  ),
-                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 110),
-                  child: SingleChildScrollView(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: _buildGroups(groups),
+                // Filter pills (with local state)
+                Padding(
+                  padding:
+                      const EdgeInsets.only(left: 22, right: 22, bottom: 12),
+                  child: Row(
+                    spacing: 7,
+                    children: List.generate(
+                      _pillLabels.length,
+                      (i) => GestureDetector(
+                        onTap: () => setState(() {
+                          _activePill = i;
+                          _filter = _filterKeys[i];
+                        }),
+                        child: _filterPill(_pillLabels[i], _activePill == i),
+                      ),
                     ),
                   ),
                 ),
-              ),
-            ],
+
+                // Cream sheet
+                Expanded(
+                  child: Container(
+                    width: double.infinity,
+                    decoration: const BoxDecoration(
+                      color: AppColors.bg,
+                      borderRadius:
+                          BorderRadius.vertical(top: Radius.circular(30)),
+                    ),
+                    padding: const EdgeInsets.fromLTRB(20, 20, 20, 110),
+                    child: SingleChildScrollView(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: _buildGroups(groups),
+                      ),
+                    ),
+                  ),
+                ),
+              ],
+            ),
           ),
         );
       },

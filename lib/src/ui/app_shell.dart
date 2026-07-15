@@ -46,28 +46,28 @@ class _AppShellState extends State<AppShell> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: IndexedStack(
-        index: _currentIndex,
-        children: const [
-          OverviewScreen(),
-          Center(child: Text('Portfolios')),
-          Center(child: Text('Transactions')),
-          Center(child: Text('Settings')),
+      body: Stack(
+        children: [
+          IndexedStack(
+            index: _currentIndex,
+            children: const [
+              OverviewScreen(),
+              Center(child: Text('Portfolios')),
+              Center(child: Text('Transactions')),
+              Center(child: Text('Settings')),
+            ],
+          ),
+          Positioned(
+            left: 24,
+            right: 24,
+            bottom: 40,
+            child: AppBottomNav(
+              currentIndex: _currentIndex,
+              onTap: (i) => setState(() => _currentIndex = i),
+              onFabTap: () => _showAddSheet(context),
+            ),
+          ),
         ],
-      ),
-      bottomNavigationBar: _bottomBar(context),
-    );
-  }
-
-  Widget _bottomBar(BuildContext context) {
-    return Positioned(
-      left: 24,
-      right: 24,
-      bottom: 40,
-      child: AppBottomNav(
-        currentIndex: _currentIndex,
-        onTap: (i) => setState(() => _currentIndex = i),
-        onFabTap: () => _showAddSheet(context),
       ),
     );
   }
