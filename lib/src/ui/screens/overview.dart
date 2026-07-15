@@ -198,7 +198,6 @@ class OverviewScreen extends ConsumerWidget {
                         chartPoints: chartPoints,
                         offline: st.offline,
                         asOf: st.asOf,
-                        onOpenLiabilities: onOpenLiabilities,
                       ),
 
                       const SizedBox(height: 13),
@@ -239,7 +238,10 @@ class OverviewScreen extends ConsumerWidget {
                               const SizedBox(height: 13),
 
                             // Stat trio
-                            _statRow(summary: st.summary!),
+                            _statRow(
+                              summary: st.summary!,
+                              onOpenLiabilities: onOpenLiabilities,
+                            ),
 
                             // Section header
                             const SizedBox(height: 13),
