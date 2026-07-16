@@ -53,6 +53,18 @@ class _FakeOverview extends OverviewNotifier {
   Future<OverviewState> build() async => _s;
 }
 
+/// Fake that records refresh() calls (via an external counter, so reuse across
+/// rebuilds is safe) for the pull-to-refresh test.
+class _RefreshCountingOverview extends OverviewNotifier {
+  final OverviewState _s;
+  final void Function() onRefresh;
+  _RefreshCountingOverview(this._s, this.onRefresh);
+  @override
+  Future<OverviewState> build() async => _s;
+  @override
+  Future<void> refresh() async => onRefresh();
+}
+
 // Empty-state fakes for the other three tabs the shell builds in its
 // IndexedStack (each would otherwise hit the DB).
 class _FakePortfolios extends PortfoliosNotifier {
@@ -184,5 +196,40 @@ void main() {
     // Placeholder should be visible (no OverviewScreen)
     expect(find.byType(OverviewScreen), findsNothing);
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('pull-to-refresh triggers overview refresh', (tester) async {
+    var calls = 0;
+    final s = _state(
+      summary: _summary(),
+      history: [
+        NetWorthHistoryData(
+          date: '2026-07-14',
+          totalAssetsThb: 4000000,
+          totalLiabilitiesThb: 384000,
+          netWorthThb: 4000000,
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        overviewProvider.overrideWith(
+            () => _RefreshCountingOverview(s, () => calls++)),
+      ],
+      child: const MaterialApp(home: OverviewScreen()),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(RefreshIndicator), findsOneWidget);
+
+    // Drag down far enough to trip the refresh gesture.
+    await tester.fling(
+        find.byType(SingleChildScrollView), const Offset(0, 400), 1200);
+    await tester.pump();
+    await tester.pump(const Duration(seconds: 1));
+
+    expect(calls, greaterThan(0));
+    await tester.pumpAndSettle();
   });
 }

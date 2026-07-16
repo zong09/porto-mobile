@@ -190,8 +190,12 @@ class OverviewScreen extends ConsumerWidget {
             children: [
               // Hero on gradient
               Expanded(
-                child: SingleChildScrollView(
-                  child: Column(
+                child: RefreshIndicator(
+                  onRefresh: () =>
+                      ref.read(overviewProvider.notifier).refresh(),
+                  child: SingleChildScrollView(
+                    physics: const AlwaysScrollableScrollPhysics(),
+                    child: Column(
                     children: [
                       _hero(
                         summary: st.summary!,
@@ -283,6 +287,7 @@ class OverviewScreen extends ConsumerWidget {
                         ),
                       ),
                     ],
+                  ),
                   ),
                 ),
               ),

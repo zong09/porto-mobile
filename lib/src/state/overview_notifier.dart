@@ -3,6 +3,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../db/database.dart';
+import '../db/misc_dao.dart';
 import '../domain/position_calculator.dart';
 import '../domain/net_worth_calculator.dart';
 import '../prices/price_repository.dart';
@@ -15,8 +16,36 @@ import '../state/providers.dart';
 part 'overview_notifier.freezed.dart';
 part 'overview_notifier.g.dart';
 
-final fxProvider = Provider<Future<double> Function()>(
-    (ref) => () async => YahooClient(Dio()).getFxRate());
+/// Fetches THB/USD FX with a persistent last-known fallback so the app stays
+/// usable offline (mirrors the price fallback chain, CONTRACTS §11). On success
+/// the rate is cached to `price_cache['fx']`; on failure the last cached rate is
+/// returned. Rethrows only when the rate has never been cached (first-run
+/// offline), which the notifier surfaces as its error state.
+Future<double> fetchFxCached(
+  MiscDao dao,
+  Future<double> Function() fetch, {
+  DateTime Function() now = DateTime.now,
+}) async {
+  try {
+    final rate = await fetch();
+    await dao.putPrice(PriceCacheCompanion.insert(
+      key: 'fx',
+      price: rate,
+      currency: 'THB',
+      fetchedAt: now().toUtc().toIso8601String(),
+    ));
+    return rate;
+  } catch (_) {
+    final cached = await dao.getPrice('fx');
+    if (cached != null) return cached.price;
+    rethrow;
+  }
+}
+
+final fxProvider = Provider<Future<double> Function()>((ref) {
+  final dao = ref.watch(miscDaoProvider);
+  return () => fetchFxCached(dao, () => YahooClient(Dio()).getFxRate());
+});
 
 @freezed
 abstract class OverviewState with _$OverviewState {
