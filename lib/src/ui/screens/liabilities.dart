@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../domain/currency_converter.dart';
 import '../../domain/formatters.dart';
+import '../../state/display_money.dart';
 import '../../state/liabilities_notifier.dart';
 import '../theme/colors.dart';
 import '../widgets/cards.dart';
@@ -18,14 +20,21 @@ class LiabilitiesScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final stateAsync = ref.watch(liabilitiesProvider);
+    final money =
+        ref.watch(displayMoneyProvider).value ?? DisplayMoney.thb;
 
     return stateAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text('Error: $e')),
       data: (state) {
         final liabilities = state.liabilities;
-        final total = liabilities.fold<double>(
-            0, (prev, l) => prev + l.amount);
+        // Liabilities are stored in their own native currency, so normalise to
+        // THB before summing — matching NetWorthCalculator.summary(). Adding the
+        // raw amounts would silently treat a USD balance as THB.
+        final totalThb = liabilities.fold<double>(
+            0,
+            (prev, l) =>
+                prev + CurrencyConverter.toThb(l.amount, l.currency, money.fx));
 
         return Scaffold(
           body: Container(
@@ -113,7 +122,7 @@ class LiabilitiesScreen extends ConsumerWidget {
                       ),
                       // Total value
                       Text(
-                        Formatters.money(total),
+                        money.money(totalThb),
                         style: const TextStyle(
                           fontSize: 38,
                           fontWeight: FontWeight.w700,
@@ -184,10 +193,9 @@ class LiabilitiesScreen extends ConsumerWidget {
                                   title: l.name,
                                   subtitle: l.currency,
                                   trailing: Text(
-                                    Formatters.money(
-                                      l.amount,
-                                      currency: l.currency,
-                                    ),
+                                    // Native currency — the row's subtitle
+                                    // already shows which one.
+                                    Formatters.money(l.amount),
                                     style: const TextStyle(
                                       fontSize: 15,
                                       fontWeight:

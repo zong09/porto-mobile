@@ -71,7 +71,8 @@ class _LiabilityAdjustSheetState
                 ),
               ),
               Text(
-                Formatters.money(widget.liability.amount, currency: currency),
+                // Native currency (the amount input below carries [suffix]).
+                Formatters.money(widget.liability.amount),
                 style: const TextStyle(
                   fontSize: 17,
                   fontWeight: FontWeight.w700,

@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porto_mobile/src/db/database.dart';
+import 'package:porto_mobile/src/domain/formatters.dart';
+import 'package:porto_mobile/src/state/display_money.dart';
 import 'package:porto_mobile/src/state/liabilities_notifier.dart';
 import 'package:porto_mobile/src/ui/screens/liabilities.dart';
 import 'package:porto_mobile/src/ui/widgets/cards.dart';
@@ -80,6 +82,53 @@ void main() {
     expect(find.byType(ListRowTile), findsNWidgets(2));
     // Total = 484,000.00
     expect(find.text('484,000.00'), findsOneWidget);
+  });
+
+  testWidgets('total normalises a USD liability to THB before summing',
+      (tester) async {
+    // Regression: the fold used to add l.amount raw, so a USD balance was
+    // counted as THB — 384,000 + 100 instead of 384,000 + 3,600.
+    final rec = _RecordingLiabilities(
+      LiabilitiesState(liabilities: [
+        _liab(id: 'l1', amount: 384000),
+        _liab(id: 'l2', name: 'บัตรเครดิต', amount: 100, currency: 'USD'),
+      ]),
+    );
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        liabilitiesProvider.overrideWith(() => rec),
+        displayMoneyProvider
+            .overrideWith((ref) async => const DisplayMoney(currency: 'THB', fx: 36)),
+      ],
+      child: const MaterialApp(home: LiabilitiesScreen()),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('387,600.00'), findsOneWidget);
+    expect(find.text('384,100.00'), findsNothing);
+  });
+
+  testWidgets('display currency USD reformats the total', (tester) async {
+    final rec = _RecordingLiabilities(
+      LiabilitiesState(liabilities: [_liab(id: 'l1', amount: 36000)]),
+    );
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        liabilitiesProvider.overrideWith(() => rec),
+        displayMoneyProvider
+            .overrideWith((ref) async => const DisplayMoney(currency: 'USD', fx: 36)),
+      ],
+      child: const MaterialApp(home: LiabilitiesScreen()),
+    ));
+    await tester.pumpAndSettle();
+
+    // The THB-denominated total converts: 36,000 THB / 36 == 1,000.00 USD.
+    expect(find.text('1,000.00'), findsOneWidget);
+    // ...while the row keeps its NATIVE amount. Native currency is locked at
+    // creation (CONTRACTS §7) and must not follow the display preference.
+    expect(find.text('36,000.00'), findsOneWidget);
   });
 
   testWidgets('adjust sheet: pay flow calls adjust(type=pay)', (tester) async {

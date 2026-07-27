@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../domain/currency_converter.dart';
 import '../../domain/formatters.dart';
+import '../../state/display_money.dart';
 import '../../state/transactions_notifier.dart';
 import '../theme/colors.dart';
 import '../widgets/cards.dart';
@@ -28,6 +30,7 @@ class _TransactionsScreenState
 
   static Widget _hero({
     required List<MapEntry<String, double>> buySellTotals,
+    required DisplayMoney money,
   }) {
     return Container(
       padding: const EdgeInsets.fromLTRB(22, 68, 22, 20),
@@ -47,7 +50,7 @@ class _TransactionsScreenState
 
           // Summary line
           Text(
-            _summaryText(buySellTotals),
+            _summaryText(buySellTotals, money),
             style: const TextStyle(
               fontSize: 12.5,
               color: Color(0xCCFAF5EC), // rgba(250,245,236,0.8)
@@ -58,11 +61,12 @@ class _TransactionsScreenState
     );
   }
 
-  static String _summaryText(List<MapEntry<String, double>> totals) {
+  static String _summaryText(
+      List<MapEntry<String, double>> totalsThb, DisplayMoney money) {
     final parts = <String>[];
-    for (final e in totals) {
+    for (final e in totalsThb) {
       if (e.value != 0) {
-        parts.add('${e.key} ฿${Formatters.money(e.value)}');
+        parts.add('${e.key} ${money.symbol}${money.money(e.value)}');
       }
     }
     return parts.isEmpty ? '' : parts.join(' · ');
@@ -180,6 +184,8 @@ class _TransactionsScreenState
   @override
   Widget build(BuildContext context) {
     final stateAsync = ref.watch(transactionsProvider);
+    final money =
+        ref.watch(displayMoneyProvider).value ?? DisplayMoney.thb;
 
     return stateAsync.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -187,14 +193,20 @@ class _TransactionsScreenState
       data: (state) {
         final groups = state.groups;
 
-        // Compute buy/sell totals for summary
-        final totals = <String, double>{'ซื้อ': 0, 'ขาย': 0};
+        // Compute buy/sell totals for summary. Transactions are priced in the
+        // asset's native currency, so normalise to THB before summing —
+        // otherwise a USD trade would be counted as THB.
+        final totalsThb = <String, double>{'ซื้อ': 0, 'ขาย': 0};
         for (final g in groups) {
           for (final row in g.rows) {
-            final side = row.tx.side;
-            if (side == 'buy' || side == 'sell') {
-              totals[side] =
-                  (totals[side] ?? 0) + row.tx.quantity * row.tx.price;
+            final label = _sideLabel(row.tx.side);
+            if (totalsThb.containsKey(label)) {
+              totalsThb[label] = totalsThb[label]! +
+                  CurrencyConverter.toThb(
+                    row.tx.quantity * row.tx.price,
+                    row.asset.currency,
+                    money.fx,
+                  );
             }
           }
         }
@@ -216,7 +228,8 @@ class _TransactionsScreenState
             child: Column(
               children: [
                 // Hero on gradient
-                _hero(buySellTotals: totals.entries.toList()),
+                _hero(
+                    buySellTotals: totalsThb.entries.toList(), money: money),
 
                 // Filter pills (with local state)
                 Padding(
@@ -345,7 +358,7 @@ class _TransactionsScreenState
 
   String _signedAmount(double amount, String side, String currency) {
     final prefix = currency == 'THB' ? '฿' : r'$';
-    final formatted = Formatters.money(amount.abs(), currency: currency);
+    final formatted = Formatters.money(amount.abs());
     switch (side) {
       case 'buy':
         return '-$prefix$formatted';

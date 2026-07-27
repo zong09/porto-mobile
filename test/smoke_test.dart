@@ -34,6 +34,7 @@ import 'package:porto_mobile/src/prices/price_repository.dart';
 import 'package:porto_mobile/src/prices/yahoo_client.dart';
 import 'package:porto_mobile/src/repos/asset_repo.dart';
 import 'package:porto_mobile/src/repos/portfolio_repo.dart';
+import 'package:porto_mobile/src/repos/settings_repo.dart';
 import 'package:porto_mobile/src/repos/transaction_repo.dart';
 import 'package:porto_mobile/src/state/overview_notifier.dart';
 import 'package:porto_mobile/src/state/providers.dart';
@@ -83,7 +84,7 @@ void main() {
     liabilities: const [],
     fx: fx,
   );
-  final expectedMoney = Formatters.money(expected.netWorthThb, currency: 'THB');
+  final expectedMoney = Formatters.money(expected.netWorthThb);
 
   late File dbFile;
 
@@ -160,6 +161,10 @@ void main() {
         assetId: btc.id, side: 'buy', quantity: 1, price: btcUsd, date: '2026-07-01');
     await seed.read(transactionRepoProvider).add(
         assetId: ptt.id, side: 'buy', quantity: 10, price: pttThb, date: '2026-07-01');
+    // Pin the display currency: this test asserts the raw THB figures from
+    // NetWorthCalculator, so it must not depend on SettingsRepo's default
+    // (CONTRACTS §SettingsRepo defaults displayCurrency to 'USD').
+    await seed.read(settingsRepoProvider).setDisplayCurrency('THB');
     seed.dispose();
 
     await tester.pumpWidget(

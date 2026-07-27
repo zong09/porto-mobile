@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
 import '../../domain/formatters.dart';
 import '../../domain/net_worth_calculator.dart';
+import '../../state/display_money.dart';
 import '../../state/overview_notifier.dart';
 import '../theme/colors.dart';
 import '../widgets/area_chart.dart';
@@ -24,6 +25,7 @@ class OverviewScreen extends ConsumerWidget {
     required List<double> chartPoints,
     required bool offline,
     required String? asOf,
+    required DisplayMoney money,
   }) {
     return Container(
       padding: const EdgeInsets.fromLTRB(22, 68, 22, 20),
@@ -45,7 +47,7 @@ class OverviewScreen extends ConsumerWidget {
               _pill('ในเครื่อง', 11, 3, 11,
                   bg: const Color(0x29FFFFFF)),
               const SizedBox(width: 8),
-              _pill('฿ THB', 11.5, 3, 12,
+              _pill(money.label, 11.5, 3, 12,
                   bg: const Color(0x29FFFFFF), bold: true),
             ],
           ),
@@ -62,7 +64,7 @@ class OverviewScreen extends ConsumerWidget {
 
           // Net-worth value
           Text(
-            Formatters.money(summary.netWorthThb, currency: 'THB'),
+            money.money(summary.netWorthThb),
             style: const TextStyle(
               fontSize: 46,
               fontWeight: FontWeight.w700,
@@ -76,10 +78,10 @@ class OverviewScreen extends ConsumerWidget {
           const SizedBox(height: 6),
           Row(
             children: [
-              _gainPill(summary.todayPlThb),
+              _gainPill(summary.todayPlThb, money),
               const SizedBox(width: 8),
               Text(
-                '+${Formatters.pct((summary.todayPlThb / (summary.netWorthThb - summary.todayPlThb) * 100)).replaceAll('%', '').replaceAll('+', '').replaceAll('-', '')} · วันนี้ +${Formatters.money(summary.todayPlThb)}',
+                '+${Formatters.pct((summary.todayPlThb / (summary.netWorthThb - summary.todayPlThb) * 100)).replaceAll('%', '').replaceAll('+', '').replaceAll('-', '')} · วันนี้ +${money.money(summary.todayPlThb)}',
                 style: const TextStyle(
                   fontSize: 12,
                   color: Color(0xCCFAF5EC), // rgba(250,245,236,0.8)
@@ -117,6 +119,7 @@ class OverviewScreen extends ConsumerWidget {
 
   static Widget _statRow({
     required NetWorthSummary summary,
+    required DisplayMoney money,
     VoidCallback? onOpenLiabilities,
   }) {
     return Row(
@@ -125,7 +128,7 @@ class OverviewScreen extends ConsumerWidget {
         Expanded(
           child: StatCard(
             label: 'Assets',
-            value: Formatters.compact(summary.totalAssetsThb),
+            value: money.compact(summary.totalAssetsThb),
           ),
         ),
         Expanded(
@@ -134,7 +137,7 @@ class OverviewScreen extends ConsumerWidget {
             behavior: HitTestBehavior.opaque,
             child: StatCard(
               label: 'Liabilities',
-              value: Formatters.compact(summary.totalLiabilitiesThb),
+              value: money.compact(summary.totalLiabilitiesThb),
               valueColor: const Color(0xFFA8341C),
             ),
           ),
@@ -156,6 +159,8 @@ class OverviewScreen extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(overviewProvider);
+    final money =
+        ref.watch(displayMoneyProvider).value ?? DisplayMoney.thb;
 
     return state.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -202,6 +207,7 @@ class OverviewScreen extends ConsumerWidget {
                         chartPoints: chartPoints,
                         offline: st.offline,
                         asOf: st.asOf,
+                        money: money,
                       ),
 
                       const SizedBox(height: 13),
@@ -244,6 +250,7 @@ class OverviewScreen extends ConsumerWidget {
                             // Stat trio
                             _statRow(
                               summary: st.summary!,
+                              money: money,
                               onOpenLiabilities: onOpenLiabilities,
                             ),
 
@@ -319,7 +326,7 @@ class OverviewScreen extends ConsumerWidget {
     );
   }
 
-  static Widget _gainPill(double todayPlThb) {
+  static Widget _gainPill(double todayPlThb, DisplayMoney money) {
     final isPositive = todayPlThb >= 0;
     return Container(
       decoration: BoxDecoration(
@@ -342,7 +349,7 @@ class OverviewScreen extends ConsumerWidget {
           ),
           const SizedBox(width: 4),
           Text(
-            '+฿${Formatters.money(todayPlThb)}',
+            '+${money.symbol}${money.money(todayPlThb)}',
             style: const TextStyle(
               fontSize: 12,
               fontWeight: FontWeight.w700,
