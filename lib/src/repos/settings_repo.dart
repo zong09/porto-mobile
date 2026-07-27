@@ -10,7 +10,7 @@ class SettingsRepo {
   SettingsRepo(this.dao);
 
   Future<String> getDisplayCurrency() async =>
-      (await dao.getSetting('displayCurrency')) ?? 'USD';
+      (await dao.getSetting('displayCurrency')) ?? 'THB';
 
   Future<void> setDisplayCurrency(String v) async {
     if (!_ccy.contains(v)) throw ArgumentError('currency');

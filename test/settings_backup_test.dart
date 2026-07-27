@@ -27,7 +27,7 @@ void main() {
 
   test('SettingsRepo defaults on fresh db', () async {
     final repo = SettingsRepo(MiscDao(db));
-    expect(await repo.getDisplayCurrency(), 'USD');
+    expect(await repo.getDisplayCurrency(), 'THB');
     expect(await repo.getLanguage(), 'th');
   });
 
@@ -99,10 +99,11 @@ void main() {
   test('SettingsNotifier build + setCurrency', () async {
     final n = container.read(settingsProvider.notifier);
     final state = await container.read(settingsProvider.future);
-    expect(state.displayCurrency, 'USD');
+    expect(state.displayCurrency, 'THB');
 
-    await n.setCurrency('THB');
+    // Switch away from the default, so this still exercises setCurrency.
+    await n.setCurrency('USD');
     final updated = await container.read(settingsProvider.future);
-    expect(updated.displayCurrency, 'THB');
+    expect(updated.displayCurrency, 'USD');
   });
 }

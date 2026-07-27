@@ -385,7 +385,7 @@ requires `key, price, currency, fetchedAt`; `chg24h` is `Value<double>` (default
 ```dart
 // repos/settings_repo.dart
 class SettingsRepo {                    // ctor(MiscDao dao)
-  Future<String> getDisplayCurrency();  // dao.getSetting('displayCurrency') ?? 'USD'
+  Future<String> getDisplayCurrency();  // dao.getSetting('displayCurrency') ?? 'THB'
   Future<void> setDisplayCurrency(String v);  // validate {THB,USD}; dao.setSetting
   Future<String> getLanguage();         // ?? 'th'
   Future<void> setLanguage(String v);   // validate {th,en}

@@ -2,12 +2,12 @@
 
 **Date:** 2026-07-28
 **Task:** "ทำต่อที่ค้างไว้เลย ใช้งาน qwen ด้วย" → finish what `phase5-handoff.md` left open.
-**Status:** ✅ Both remaining **actionable** items done & verified.
+**Status:** ✅ Both remaining actionable items done, **plus the open USD-default decision resolved**.
 `flutter analyze lib test` clean, **162 tests green** (was 160 — +2 new).
 
 The other open items in `phase5-handoff.md` are *not* actionable and were correctly left alone:
-dual-currency inline display (design contradicts it), on-device `integration_test/`
-(no emulator/adb in this env), and the USD-default decision (a product call — see below).
+dual-currency inline display (design contradicts it) and on-device `integration_test/`
+(no emulator/adb in this env).
 
 ---
 
@@ -70,6 +70,25 @@ splitting Thai wrongly** — verified by injecting a dropped-vowel corruption
   a second asset into the same widget type without a key silently keeps the first one. The test
   passes `key: ValueKey(a.id)`.
 
+## 3. `displayCurrency` now defaults to THB — DECIDED & DONE
+
+The open decision from `phase5-handoff.md:86-100` was **put to the user, who chose THB.** A fresh
+install now renders baht, not converted dollars. This is a deliberate **amendment to CONTRACTS**,
+not a drift from it.
+
+Five sites changed together — the handoff named three; **two more encoded the same default:**
+
+| Site | Change |
+|---|---|
+| `lib/src/repos/settings_repo.dart:13` | `?? 'USD'` → `?? 'THB'` |
+| `CONTRACTS.md:388` | spec comment amended to match |
+| `test/settings_backup_test.dart:30` | fresh-db default assertion → `'THB'` |
+| `test/settings_backup_test.dart:102` | **not in the original list.** Asserted a USD default, then `setCurrency('THB')`. Flipping only the assertion would have made it vacuous (set THB, expect THB), so the *target* was flipped to USD — the test still proves `setCurrency` changes something. |
+| `test/smoke_test.dart:166` | **not in the original list.** A comment citing the USD default. The explicit `setDisplayCurrency('THB')` pin above it **stays** — it keeps the test independent of whatever the default is. |
+
+If this is ever revisited, `grep -rn "displayCurrency" lib test CONTRACTS.md` finds all of them;
+the two beyond the named three are easy to miss.
+
 ## Qwen usage this session (per the `/qwen-agent` ask)
 
 | Delegated | Result |
@@ -94,11 +113,8 @@ Run verification yourself.
 - `app_shell.dart`'s note uses `EdgeInsets.all(16)`; `design-overview.md:54` says `12px 16px`.
   Pre-existing, cosmetic, not touched.
 
-## Still open (unchanged)
+## Still open
 
-- **⚠️ `displayCurrency` defaults to USD** — the product decision from `phase5-handoff.md:86-100`
-  is still unmade. `CONTRACTS.md:388` + `settings_backup_test.dart:30` say USD; the mobile design
-  says THB. Flip all three together or leave it.
 - Dual-currency inline display — design contradicts it; don't implement.
 - On-device `integration_test/` — needs an emulator/device.
 

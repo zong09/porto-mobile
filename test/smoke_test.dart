@@ -163,7 +163,8 @@ void main() {
         assetId: ptt.id, side: 'buy', quantity: 10, price: pttThb, date: '2026-07-01');
     // Pin the display currency: this test asserts the raw THB figures from
     // NetWorthCalculator, so it must not depend on SettingsRepo's default
-    // (CONTRACTS §SettingsRepo defaults displayCurrency to 'USD').
+    // (CONTRACTS §SettingsRepo defaults displayCurrency to 'THB' — the pin
+    // stays explicit so the test survives another change of default).
     await seed.read(settingsRepoProvider).setDisplayCurrency('THB');
     seed.dispose();
 
