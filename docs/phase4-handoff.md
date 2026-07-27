@@ -47,6 +47,10 @@
 
 ---
 
+> **SUPERSEDED (2026-07-27):** follow-ups 1 and 4 below are **DONE** — see
+> `docs/phase5-handoff.md`. Item 4's file list below is **wrong/stale** (it names 2 files;
+> the real scope was 58 corrupted lines across 9 files). Items 2 and 3 still stand.
+
 ## What is NOT done — follow-ups (each is a separate task, not Phase-4 polish)
 
 1. **Display-currency toggle is not wired to reformat values.** `Formatters.money` **ignores its `currency` argument** — every money value renders THB-style (`฿`) regardless of `displayCurrency`. Settings has the THB↔USD picker (`สกุลเงินหลัก`) driving `displayCurrency`, but nothing converts/reformats on the screens. This is the real "currency switch" feature implied by design 1b. Scope: extend `Formatters` + a display-currency-aware money widget, convert THB↔USD via `fx`, swap `฿`/`$` prefix, thread `displayCurrency` into every money render.

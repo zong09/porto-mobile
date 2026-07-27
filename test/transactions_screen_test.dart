@@ -2,6 +2,8 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porto_mobile/src/db/database.dart';
+import 'package:porto_mobile/src/domain/formatters.dart';
+import 'package:porto_mobile/src/state/display_money.dart';
 import 'package:porto_mobile/src/state/transactions_notifier.dart';
 import 'package:porto_mobile/src/ui/screens/transactions.dart';
 import 'package:porto_mobile/src/ui/widgets/transaction_sheet.dart';
@@ -68,9 +70,11 @@ class _FakeTx extends TransactionsNotifier {
   Future<TransactionsState> build() async => _s;
 }
 
-Widget _app(TransactionsState s) => ProviderScope(
+Widget _app(TransactionsState s, {DisplayMoney? money}) => ProviderScope(
       overrides: [
         transactionsProvider.overrideWith(() => _FakeTx(s)),
+        if (money != null)
+          displayMoneyProvider.overrideWith((ref) async => money),
       ],
       child: const MaterialApp(home: TransactionsScreen()),
     );
@@ -78,6 +82,48 @@ Widget _app(TransactionsState s) => ProviderScope(
 // ── tests ──────────────────────────────────────────────────────────────────
 
 void main() {
+  // ── Hero summary line: Thai labels + THB-normalised totals ────────────
+  testWidgets('hero summary labels totals in Thai and normalises USD to THB',
+      (tester) async {
+    // Regression: the fold seeded the map with Thai labels but wrote keys by the
+    // raw side ('buy'/'sell'), so the summary rendered "buy ฿…" in English. It
+    // also summed native amounts raw, counting this USD trade as THB.
+    await tester.pumpWidget(_app(
+      TransactionsState(groups: [
+        _group(rows: [
+          // 2 × $50 USD = $100 → 3,600 THB at fx 36
+          _row(
+            tx: _tx(side: 'buy', quantity: 2, price: 50),
+            asset: _asset(currency: 'USD'),
+          ),
+        ]),
+      ]),
+      money: const DisplayMoney(currency: 'THB', fx: 36),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('ซื้อ ฿3,600.00'), findsOneWidget);
+    expect(find.textContaining('buy '), findsNothing);
+  });
+
+  testWidgets('hero summary follows the display currency', (tester) async {
+    await tester.pumpWidget(_app(
+      TransactionsState(groups: [
+        _group(rows: [
+          // 10 × ฿360 = 3,600 THB → $100 at fx 36
+          _row(
+            tx: _tx(side: 'buy', quantity: 10, price: 360),
+            asset: _asset(currency: 'THB'),
+          ),
+        ]),
+      ]),
+      money: const DisplayMoney(currency: 'USD', fx: 36),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining(r'ซื้อ $100.00'), findsOneWidget);
+  });
+
   // ── Test 1: rows grouped under date headers in order ──────────────────
 
   testWidgets(
