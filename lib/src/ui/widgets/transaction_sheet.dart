@@ -49,6 +49,10 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
   double get _fee => double.tryParse(_feeCtrl.text) ?? 0;
   double get _total => _qty * _price + _fee;
 
+  /// Glyph for the selected asset's *native* currency (CONTRACTS §7) — price
+  /// and fee are entered in it, not in the display currency.
+  String get _nativeSymbol => _selected?.currency == 'USD' ? r'$' : '฿';
+
   @override
   void initState() {
     super.initState();
@@ -220,7 +224,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
           child: _numberInput(
             controller: _priceCtrl,
             label: 'ราคาต่อหน่วย',
-            suffix: '฿',
+            suffix: _nativeSymbol,
           ),
         ),
       ],
@@ -274,7 +278,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
           child: _numberInput(
             controller: _feeCtrl,
             label: 'ค่าธรรมเนียม (ถ้ามี)',
-            suffix: '฿',
+            suffix: _nativeSymbol,
           ),
         ),
       ],

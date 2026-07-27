@@ -244,11 +244,23 @@ class _AddSheetContent extends StatelessWidget {
             borderRadius: BorderRadius.circular(16),
           ),
           padding: const EdgeInsets.all(16),
-          child: Text(
-            'ข้อมูลอยู่ในเครื่องของคุณ — ไม่มีบัญชี ไม่ต้องล็อกอิน',
-            style: const TextStyle(
-              fontSize: 12,
-              color: Color(0xFF6B5D49),
+          child: const Text.rich(
+            TextSpan(
+              style: TextStyle(
+                fontSize: 12,
+                color: Color(0xFF6B5D49),
+              ),
+              children: [
+                TextSpan(text: 'ข้อมูลอยู่'),
+                TextSpan(
+                  text: 'ในเครื่องของคุณ',
+                  style: TextStyle(
+                    fontWeight: FontWeight.w700,
+                    color: Color(0xFFC24A1E),
+                  ),
+                ),
+                TextSpan(text: ' — ไม่มีบัญชี ไม่ต้องล็อกอิน'),
+              ],
             ),
           ),
         ),

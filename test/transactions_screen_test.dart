@@ -269,6 +269,40 @@ void main() {
     expect(recorder.lastCall!['quantity'], 2.0);
     expect(recorder.lastCall!['price'], 100.0);
   });
+
+  // ── Test 5: price/fee suffixes follow the asset's native currency ──────
+
+  testWidgets('price + fee suffixes follow the asset native currency',
+      (tester) async {
+    Future<void> pumpFor(Asset a) async {
+      await tester.pumpWidget(ProviderScope(
+        child: MaterialApp(
+          home: Scaffold(
+            body: TransactionSheet(
+              // Distinct key per asset — without it the second pump reuses the
+              // existing State and initState never re-picks _selected.
+              key: ValueKey(a.id),
+              side: 'buy',
+              assets: [a],
+              initialAsset: a,
+            ),
+          ),
+        ),
+      ));
+      await tester.pumpAndSettle();
+    }
+
+    // USD asset — price + fee are entered in USD, so both suffixes show $.
+    await pumpFor(_asset(id: 'a1', symbol: 'BTC', currency: 'USD'));
+    expect(find.text(r'$'), findsNWidgets(2));
+    expect(find.text('฿'), findsNothing);
+
+    // THB asset — both suffixes show ฿.
+    await pumpFor(
+        _asset(id: 'a2', symbol: 'PTT', currency: 'THB', type: 'th'));
+    expect(find.text('฿'), findsNWidgets(2));
+    expect(find.text(r'$'), findsNothing);
+  });
 }
 
 // ── Recording fake notifier ───────────────────────────────────────────────

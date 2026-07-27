@@ -198,6 +198,40 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('add sheet local-data note keeps its full copy', (tester) async {
+    // Taller surface only (800x1200 logical, dpr 3). The add sheet overflows
+    // the default 800x600 by 73px — pre-existing, also with the plain Text.
+    // Width stays 800: narrowing it trips unrelated horizontal overflows.
+    tester.view.physicalSize = const Size(2400, 3600);
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final s = _state(
+      summary: _summary(),
+      history: [
+        NetWorthHistoryData(
+          date: '2026-07-14',
+          totalAssetsThb: 4000000,
+          totalLiabilitiesThb: 384000,
+          netWorthThb: 4000000,
+        ),
+      ],
+    );
+
+    await tester.pumpWidget(_appShell(s));
+    await tester.pumpAndSettle();
+
+    // Open the add sheet via the FAB.
+    tester.widget<AppBottomNav>(find.byType(AppBottomNav)).onFabTap();
+    await tester.pumpAndSettle();
+
+    // The note is a Text.rich (ในเครื่องของคุณ is emphasised) — assert the
+    // spans still reconstruct the copy verbatim.
+    expect(
+      find.text('ข้อมูลอยู่ในเครื่องของคุณ — ไม่มีบัญชี ไม่ต้องล็อกอิน'),
+      findsOneWidget,
+    );
+  });
+
   testWidgets('pull-to-refresh triggers overview refresh', (tester) async {
     var calls = 0;
     final s = _state(
