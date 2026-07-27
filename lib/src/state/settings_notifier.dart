@@ -2,6 +2,10 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../repos/settings_repo.dart';
 import '../repos/backup_repo.dart';
+import 'liabilities_notifier.dart';
+import 'overview_notifier.dart';
+import 'portfolios_notifier.dart';
+import 'transactions_notifier.dart';
 
 part 'settings_notifier.freezed.dart';
 part 'settings_notifier.g.dart';
@@ -42,8 +46,21 @@ class SettingsNotifier extends _$SettingsNotifier {
   Future<Map<String, dynamic>> exportToJson() =>
       ref.read(backupRepoProvider).exportJson();
 
+  /// Replaces the whole database with [d].
+  ///
+  /// Passing `const {}` wipes everything — `BackupRepo.importJson` deletes every
+  /// table before inserting, so an empty payload inserts nothing. That is how
+  /// Settings › ลบข้อมูลทั้งหมด is implemented.
+  ///
+  /// Every other notifier caches rows that no longer exist, so they must be
+  /// invalidated too — without this, import and delete-all both appear to do
+  /// nothing until the app is restarted.
   Future<void> importFromJson(Map<String, dynamic> d) async {
     await ref.read(backupRepoProvider).importJson(d);
+    ref.invalidate(portfoliosProvider);
+    ref.invalidate(transactionsProvider);
+    ref.invalidate(liabilitiesProvider);
+    ref.invalidate(overviewProvider);
     await _reload();
   }
 }

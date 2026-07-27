@@ -42,13 +42,18 @@ Widget _app({
   required SettingsState state,
   VoidCallback? onExport,
   VoidCallback? onImport,
+  VoidCallback? onDeleteAll,
 }) {
   return ProviderScope(
     overrides: [
       settingsProvider.overrideWith(() => _FakeSettings(state)),
     ],
     child: MaterialApp(
-      home: SettingsScreen(onExport: onExport, onImport: onImport),
+      home: SettingsScreen(
+        onExport: onExport,
+        onImport: onImport,
+        onDeleteAll: onDeleteAll,
+      ),
     ),
   );
 }
@@ -181,4 +186,36 @@ void main() {
         expect(find.text('ไม่มีข้อมูลราคาย้อนหลัง'), findsOneWidget);
         expect(find.byType(AreaChart), findsNothing);
       });
+
+  // ── delete all data ─────────────────────────────────────────────────────
+
+  testWidgets('ลบข้อมูลทั้งหมด confirms before firing onDeleteAll',
+      (tester) async {
+    // The destructive row sits at y≈741 — past the default 600px surface.
+    tester.view.physicalSize = const Size(2400, 3600); // 800x1200 logical
+    addTearDown(tester.view.resetPhysicalSize);
+
+    var deleted = 0;
+    await tester.pumpWidget(_app(
+      state: const SettingsState(displayCurrency: 'THB', language: 'th'),
+      onDeleteAll: () => deleted++,
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ลบข้อมูลทั้งหมด'));
+    await tester.pumpAndSettle();
+
+    // Cancelling must NOT delete.
+    expect(find.text('ยกเลิก'), findsOneWidget);
+    await tester.tap(find.text('ยกเลิก'));
+    await tester.pumpAndSettle();
+    expect(deleted, 0);
+
+    // Confirming does.
+    await tester.tap(find.text('ลบข้อมูลทั้งหมด'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.widgetWithText(TextButton, 'ลบ'));
+    await tester.pumpAndSettle();
+    expect(deleted, 1);
+  });
 }

@@ -5,6 +5,7 @@ import '../../domain/formatters.dart';
 import '../../state/transactions_notifier.dart';
 import '../../db/database.dart';
 import '../theme/colors.dart';
+import 'cards.dart';
 import 'sheet_shell.dart';
 
 /// Transaction form sheet — buy / sell / deposit / withdraw.
@@ -98,10 +99,51 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
 
   // ── build ────────────────────────────────────────────────────────────
 
+  /// Lets the user swap the asset the transaction is against.
+  Future<void> _pickAsset() async {
+    final picked = await showPortoSheet<Asset>(
+      context,
+      title: 'เลือกสินทรัพย์',
+      builder: (ctx) => SingleChildScrollView(
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: widget.assets
+              .map((a) => ListRowTile(
+                    leading: Container(
+                      width: 36,
+                      height: 36,
+                      decoration: BoxDecoration(
+                        color: _tintBg(a.type),
+                        borderRadius: BorderRadius.circular(8),
+                      ),
+                      child: Center(
+                        child: Text(
+                          a.symbol[0],
+                          style: TextStyle(
+                            fontSize: 14,
+                            fontWeight: FontWeight.w700,
+                            color: _tintFg(a.type),
+                          ),
+                        ),
+                      ),
+                    ),
+                    title: '${a.name} ${a.symbol}',
+                    subtitle: 'สกุลเงิน: ${a.currency}',
+                    trailing: const SizedBox.shrink(),
+                    onTap: () => Navigator.of(ctx).pop(a),
+                  ))
+              .toList(),
+        ),
+      ),
+    );
+    if (picked != null && mounted) setState(() => _selected = picked);
+  }
+
   @override
   Widget build(BuildContext context) {
     return SheetShell(
-      title: _title(widget.side),
+      // Edit mode reuses the same form, so name it for what it does.
+      title: widget.existing != null ? 'แก้ไขรายการ' : _title(widget.side),
       onClose: () => Navigator.of(context).pop(),
       child: SingleChildScrollView(
         child: Column(
@@ -138,70 +180,74 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
   // ── asset selector ───────────────────────────────────────────────────
 
   Widget _assetSelector(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(16),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
-      child: Row(
-        children: [
-          // Tinted tile
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: _selected != null
-                  ? _tintBg(_selected!.type)
-                  : AppColors.muted3,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Center(
-              child: Text(
-                _selected != null ? _selected!.symbol[0] : '?',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w700,
-                  color: _tintFg(_selected?.type),
+    return GestureDetector(
+      onTap: _pickAsset,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(16),
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
+        child: Row(
+          children: [
+            // Tinted tile
+            Container(
+              width: 36,
+              height: 36,
+              decoration: BoxDecoration(
+                color: _selected != null
+                    ? _tintBg(_selected!.type)
+                    : AppColors.muted3,
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Center(
+                child: Text(
+                  _selected != null ? _selected!.symbol[0] : '?',
+                  style: TextStyle(
+                    fontSize: 14,
+                    fontWeight: FontWeight.w700,
+                    color: _tintFg(_selected?.type),
+                  ),
                 ),
               ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  _selected != null
-                      ? '${_selected!.name} ${_selected!.symbol}'
-                      : 'เลือกสินทรัพย์',
-                  style: const TextStyle(
-                    fontSize: 14.5,
-                    fontWeight: FontWeight.w700,
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    _selected != null
+                        ? '${_selected!.name} ${_selected!.symbol}'
+                        : 'เลือกสินทรัพย์',
+                    style: const TextStyle(
+                      fontSize: 14.5,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
-                ),
-                Text(
-                  _selected != null
-                      ? 'สกุลเงิน: ${_selected!.currency}'
-                      : '',
-                  style: const TextStyle(
-                    fontSize: 11,
-                    color: AppColors.muted2,
+                  Text(
+                    _selected != null
+                        ? 'สกุลเงิน: ${_selected!.currency}'
+                        : '',
+                    style: const TextStyle(
+                      fontSize: 11,
+                      color: AppColors.muted2,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          Text(
-            'เปลี่ยน \u{203A}',
-            style: const TextStyle(
-              fontSize: 13,
-              fontWeight: FontWeight.w600,
-              color: AppColors.brand,
+            Text(
+              'เปลี่ยน \u{203A}',
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w600,
+                color: AppColors.brand,
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }

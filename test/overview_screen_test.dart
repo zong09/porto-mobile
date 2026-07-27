@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:porto_mobile/src/db/database.dart';
 import 'package:porto_mobile/src/domain/net_worth_calculator.dart';
+import 'package:porto_mobile/src/domain/position_calculator.dart';
 import 'package:porto_mobile/src/state/overview_notifier.dart';
 import 'package:porto_mobile/src/state/portfolios_notifier.dart';
 import 'package:porto_mobile/src/state/transactions_notifier.dart';
@@ -30,6 +31,42 @@ NetWorthSummary _summary({
       todayPlThb: todayPlThb,
       totalCostThb: totalCostThb,
       fx: fx,
+    );
+
+/// One portfolio node whose assets all share [currency], with [totalCost]
+/// split evenly across [symbols].
+PortfolioNode _pfNode({
+  required String id,
+  required String name,
+  required List<String> symbols,
+  required String currency,
+  required double totalCost,
+  int color = 0,
+}) =>
+    PortfolioNode(
+      portfolio: Portfolio(id: id, name: name, color: color, sortOrder: 0),
+      assets: [
+        for (final (i, sym) in symbols.indexed)
+          AssetNode(
+            asset: Asset(
+              id: '$id-$sym',
+              portfolioId: id,
+              type: 'crypto',
+              symbol: sym,
+              name: sym,
+              currency: currency,
+              direction: 'long',
+              sortOrder: i,
+            ),
+            position: PositionSummary(
+              quantity: 1,
+              avgCost: totalCost / symbols.length,
+              totalCost: totalCost / symbols.length,
+              realizedPnl: 0,
+              direction: 'long',
+            ),
+          ),
+      ],
     );
 
 OverviewState _state({
@@ -68,8 +105,10 @@ class _RefreshCountingOverview extends OverviewNotifier {
 // Empty-state fakes for the other three tabs the shell builds in its
 // IndexedStack (each would otherwise hit the DB).
 class _FakePortfolios extends PortfoliosNotifier {
+  final PortfoliosState _s;
+  _FakePortfolios([this._s = const PortfoliosState(nodes: [])]);
   @override
-  Future<PortfoliosState> build() async => const PortfoliosState(nodes: []);
+  Future<PortfoliosState> build() async => _s;
 }
 
 class _FakeTx extends TransactionsNotifier {
@@ -89,9 +128,17 @@ class _FakeSettings extends SettingsNotifier {
       const SettingsState(displayCurrency: 'USD', language: 'th');
 }
 
-Widget _app(OverviewState s) => ProviderScope(
-      overrides: [overviewProvider.overrideWith(() => _FakeOverview(s))],
-      child: const MaterialApp(home: OverviewScreen()),
+/// OverviewScreen now also watches portfoliosProvider for the portfolio list,
+/// so it must be overridden here too or the real provider graph is hit.
+Widget _app(OverviewState s, {VoidCallback? onSeeAllPortfolios}) =>
+    ProviderScope(
+      overrides: [
+        overviewProvider.overrideWith(() => _FakeOverview(s)),
+        portfoliosProvider.overrideWith(() => _FakePortfolios()),
+      ],
+      child: MaterialApp(
+        home: OverviewScreen(onSeeAllPortfolios: onSeeAllPortfolios),
+      ),
     );
 
 Widget _appShell(OverviewState s) => ProviderScope(
@@ -198,6 +245,53 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('portfolio list renders real nodes, USD normalised to THB',
+      (tester) async {
+    // fx = 35: the USD portfolio's 100 cost basis must render as 3,500.00,
+    // not 100.00. Guards the mixed-currency sum.
+    final s = _state(summary: _summary(fx: 35));
+    final nodes = PortfoliosState(nodes: [
+      _pfNode(id: 'p1', name: 'Crypto หลัก', symbols: ['BTC', 'ETH'],
+          currency: 'USD', totalCost: 100),
+      _pfNode(id: 'p2', name: 'หุ้นไทย', symbols: ['PTT'],
+          currency: 'THB', totalCost: 2000),
+    ]);
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        overviewProvider.overrideWith(() => _FakeOverview(s)),
+        portfoliosProvider.overrideWith(() => _FakePortfolios(nodes)),
+      ],
+      child: const MaterialApp(home: OverviewScreen()),
+    ));
+    await tester.pumpAndSettle();
+
+    // The placeholder is gone.
+    expect(find.textContaining('coming in T3.06'), findsNothing);
+
+    // Real portfolio names + member-symbol subtitles.
+    expect(find.text('Crypto หลัก'), findsOneWidget);
+    expect(find.text('BTC · ETH'), findsOneWidget);
+    expect(find.text('หุ้นไทย'), findsOneWidget);
+
+    // USD 100 × fx 35 → 3,500.00; THB 2000 stays 2,000.00.
+    expect(find.text('3,500.00'), findsOneWidget);
+    expect(find.text('2,000.00'), findsOneWidget);
+  });
+
+  testWidgets('ดูทั้งหมด fires onSeeAllPortfolios', (tester) async {
+    var taps = 0;
+    await tester.pumpWidget(
+      _app(_state(summary: _summary()), onSeeAllPortfolios: () => taps++),
+    );
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ดูทั้งหมด'));
+    await tester.pumpAndSettle();
+
+    expect(taps, 1);
+  });
+
   testWidgets('add sheet local-data note keeps its full copy', (tester) async {
     // Taller surface only (800x1200 logical, dpr 3). The add sheet overflows
     // the default 800x600 by 73px — pre-existing, also with the plain Text.
@@ -250,6 +344,7 @@ void main() {
       overrides: [
         overviewProvider.overrideWith(
             () => _RefreshCountingOverview(s, () => calls++)),
+        portfoliosProvider.overrideWith(() => _FakePortfolios()),
       ],
       child: const MaterialApp(home: OverviewScreen()),
     ));

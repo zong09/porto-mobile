@@ -1,13 +1,16 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
+import '../../domain/currency_converter.dart';
 import '../../domain/formatters.dart';
 import '../../domain/net_worth_calculator.dart';
 import '../../state/display_money.dart';
 import '../../state/overview_notifier.dart';
+import '../../state/portfolios_notifier.dart';
 import '../theme/colors.dart';
 import '../widgets/area_chart.dart';
 import '../widgets/cards.dart';
+import '../widgets/donut_chart.dart';
 
 /// Overview screen — gradient hero with net-worth, area chart, stat trio,
 /// and portfolio list. Watches [overviewProvider] and renders fake state.
@@ -16,7 +19,84 @@ class OverviewScreen extends ConsumerWidget {
   /// the Liabilities screen). Null → no-op.
   final VoidCallback? onOpenLiabilities;
 
-  const OverviewScreen({super.key, this.onOpenLiabilities});
+  /// Called by the "ดูทั้งหมด" link above the portfolio list — AppShell owns the
+  /// tab index, so it switches to the Portfolios tab. Null → no-op.
+  final VoidCallback? onSeeAllPortfolios;
+
+  const OverviewScreen({
+    super.key,
+    this.onOpenLiabilities,
+    this.onSeeAllPortfolios,
+  });
+
+  // ── portfolio list ───────────────────────────────────────────────────
+
+  /// Cost basis of one portfolio, normalised to THB.
+  ///
+  /// `position.totalCost` is in each asset's NATIVE currency, so summing it raw
+  /// across a mixed-currency portfolio would count USD as THB — the same bug
+  /// fixed in Liabilities/Transactions (see docs/phase5-handoff.md §2).
+  static double _nodeCostThb(PortfolioNode node, double fx) =>
+      node.assets.fold<double>(
+        0,
+        (sum, an) =>
+            sum + CurrencyConverter.toThb(an.position.totalCost, an.asset.currency, fx),
+      );
+
+  static Widget _portfolioList({
+    required List<PortfolioNode> nodes,
+    required DisplayMoney money,
+    required double fx,
+  }) {
+    if (nodes.isEmpty) {
+      return const PlainCard(
+        child: Center(
+          child: Text(
+            'ยังไม่มีพอร์ต',
+            style: TextStyle(fontSize: 12, color: AppColors.muted),
+          ),
+        ),
+      );
+    }
+
+    return DividedCard(
+      rows: nodes.map((node) {
+        final symbols = node.assets.map((an) => an.asset.symbol).join(' · ');
+        return ListRowTile(
+          leading: Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.palette[node.portfolio.color]
+                  .withValues(alpha: 0.2),
+              borderRadius: BorderRadius.circular(13),
+            ),
+            child: DonutChart(
+              node.assets.isEmpty
+                  ? [DonutSlice(1, AppColors.palette[node.portfolio.color])]
+                  : node.assets
+                      .map((an) => DonutSlice(
+                            an.position.totalCost,
+                            AppColors.palette[node.portfolio.color],
+                          ))
+                      .toList(),
+              strokeFraction: 0.34,
+            ),
+          ),
+          title: node.portfolio.name,
+          subtitle: symbols,
+          trailing: Text(
+            money.money(_nodeCostThb(node, fx)),
+            style: const TextStyle(
+              fontSize: 14,
+              fontWeight: FontWeight.w700,
+              fontFeatures: [FontFeature.tabularFigures()],
+            ),
+          ),
+        );
+      }).toList(),
+    );
+  }
 
   // ── hero ─────────────────────────────────────────────────────────────
 
@@ -161,6 +241,8 @@ class OverviewScreen extends ConsumerWidget {
     final state = ref.watch(overviewProvider);
     final money =
         ref.watch(displayMoneyProvider).value ?? DisplayMoney.thb;
+    final nodes =
+        ref.watch(portfoliosProvider).value?.nodes ?? const <PortfolioNode>[];
 
     return state.when(
       loading: () => const Center(child: CircularProgressIndicator()),
@@ -266,29 +348,27 @@ class OverviewScreen extends ConsumerWidget {
                                   ),
                                 ),
                                 const Spacer(),
-                                Text(
-                                  'ดูทั้งหมด',
-                                  style: const TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w700,
-                                    color: AppColors.brand,
+                                GestureDetector(
+                                  onTap: onSeeAllPortfolios,
+                                  behavior: HitTestBehavior.opaque,
+                                  child: const Text(
+                                    'ดูทั้งหมด',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.brand,
+                                    ),
                                   ),
                                 ),
                               ],
                             ),
 
-                            // Simple placeholder for portfolio list
+                            // Portfolio list
                             const SizedBox(height: 13),
-                            PlainCard(
-                              child: const Center(
-                                child: Text(
-                                  'Portfolio list — coming in T3.06',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    color: AppColors.muted,
-                                  ),
-                                ),
-                              ),
+                            _portfolioList(
+                              nodes: nodes,
+                              money: money,
+                              fx: st.summary!.fx,
                             ),
                           ],
                         ),

@@ -5,6 +5,8 @@ import 'package:porto_mobile/src/ui/theme/colors.dart';
 import 'package:porto_mobile/src/ui/widgets/area_chart.dart';
 import 'package:porto_mobile/src/ui/widgets/cards.dart';
 import 'package:porto_mobile/src/ui/widgets/donut_chart.dart';
+import 'package:porto_mobile/src/ui/widgets/portfolio_sheet.dart';
+import 'package:porto_mobile/src/ui/widgets/sheet_shell.dart';
 
 /// Maps an asset type wire string to its palette index (crypto=0 … deposit=4).
 int _assetTypeIndex(String type) {
@@ -65,7 +67,7 @@ class PortfoliosScreen extends ConsumerWidget {
                       ),
                       const Spacer(),
                       InkWell(
-                        onTap: () => _showCreatePortfolioSheet(context, ref),
+                        onTap: () => _showCreatePortfolioSheet(context),
                         borderRadius: BorderRadius.circular(999),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
@@ -127,7 +129,9 @@ class PortfoliosScreen extends ConsumerWidget {
                     children: [
                       ...nodes.map((node) => _PortfolioCard(node: node)),
                       // Dashed create-new card
-                      _CreateNewCard(),
+                      _CreateNewCard(
+                        onTap: () => _showCreatePortfolioSheet(context),
+                      ),
                     ],
                   ),
                 ),
@@ -139,10 +143,11 @@ class PortfoliosScreen extends ConsumerWidget {
     );
   }
 
-  void _showCreatePortfolioSheet(BuildContext context, WidgetRef ref) {
-    // Placeholder — would open a create-portfolio sheet
-    ScaffoldMessenger.of(context).showSnackBar(
-      const SnackBar(content: Text('Create portfolio sheet')),
+  void _showCreatePortfolioSheet(BuildContext context) {
+    showPortoSheet(
+      context,
+      title: 'สร้างพอร์ตใหม่',
+      builder: (_) => const PortfolioCreateSheet(),
     );
   }
 }
@@ -534,26 +539,34 @@ class _PortfolioCard extends StatelessWidget {
 
 /// Dashed "create new" card at the end of the list.
 class _CreateNewCard extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _CreateNewCard({required this.onTap});
+
   @override
   Widget build(BuildContext context) {
-    return Container(
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: const Color(0xFFD9CBB4),
-          width: 1.5,
-          strokeAlign: BorderSide.strokeAlignOutside,
+    return GestureDetector(
+      onTap: onTap,
+      behavior: HitTestBehavior.opaque,
+      child: Container(
+        decoration: BoxDecoration(
+          color: AppColors.surface,
+          borderRadius: BorderRadius.circular(18),
+          border: Border.all(
+            color: const Color(0xFFD9CBB4),
+            width: 1.5,
+            strokeAlign: BorderSide.strokeAlignOutside,
+          ),
         ),
-      ),
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-      child: const Center(
-        child: Text(
-          '+ สร้างพอร์ตใหม่',
-          style: TextStyle(
-            fontSize: 12.5,
-            fontWeight: FontWeight.w700,
-            color: Color(0xFFA89A86),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
+        child: const Center(
+          child: Text(
+            '+ สร้างพอร์ตใหม่',
+            style: TextStyle(
+              fontSize: 12.5,
+              fontWeight: FontWeight.w700,
+              color: Color(0xFFA89A86),
+            ),
           ),
         ),
       ),

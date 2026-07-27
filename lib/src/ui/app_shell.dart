@@ -99,7 +99,14 @@ class _AppShellState extends ConsumerState<AppShell> {
           case 'deposit':
             _startTransaction(action);
           case 'liability':
-            _showSheet(const LiabilityCreateSheet());
+            // LiabilityCreateSheet builds fields only — it needs showPortoSheet
+            // for the chrome. _showSheet would render it bare on a transparent
+            // background (matches liabilities.dart:84).
+            showPortoSheet(
+              context,
+              title: 'เพิ่มหนี้สิน',
+              builder: (_) => const LiabilityCreateSheet(),
+            );
         }
       });
     });
@@ -151,6 +158,24 @@ class _AppShellState extends ConsumerState<AppShell> {
     }
   }
 
+  Future<void> _deleteAllData() async {
+    try {
+      // Empty payload → importJson wipes every table and inserts nothing.
+      await ref.read(settingsProvider.notifier).importFromJson(const {});
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(content: Text('ลบข้อมูลทั้งหมดแล้ว')),
+        );
+      }
+    } catch (e) {
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text('ลบข้อมูลล้มเหลว: $e')),
+        );
+      }
+    }
+  }
+
   // ── build ────────────────────────────────────────────────────────────
 
   @override
@@ -161,10 +186,17 @@ class _AppShellState extends ConsumerState<AppShell> {
           IndexedStack(
             index: _currentIndex,
             children: [
-              OverviewScreen(onOpenLiabilities: _openLiabilities),
+              OverviewScreen(
+                onOpenLiabilities: _openLiabilities,
+                onSeeAllPortfolios: () => setState(() => _currentIndex = 1),
+              ),
               const PortfoliosScreen(),
               const TransactionsScreen(),
-              SettingsScreen(onExport: _exportBackup, onImport: _importBackup),
+              SettingsScreen(
+                onExport: _exportBackup,
+                onImport: _importBackup,
+                onDeleteAll: _deleteAllData,
+              ),
             ],
           ),
           Positioned(

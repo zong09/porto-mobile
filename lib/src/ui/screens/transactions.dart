@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import '../../db/database.dart';
 import '../../domain/currency_converter.dart';
 import '../../domain/formatters.dart';
 import '../../state/display_money.dart';
+import '../../state/portfolios_notifier.dart';
 import '../../state/transactions_notifier.dart';
 import '../theme/colors.dart';
 import '../widgets/cards.dart';
+import '../widgets/transaction_sheet.dart';
 
 /// Transactions screen — gradient hero with date-grouped tx list + filter pills.
 ///
@@ -347,12 +350,34 @@ class _TransactionsScreenState
           ),
         ],
       ),
-      onTap: () {
-        // Open form in edit mode — pops for now
-        ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Edit ${tx.id}')),
-        );
-      },
+      onTap: () => _editTransaction(row),
+    );
+  }
+
+  void _editTransaction(TxRow row) {
+    // Every asset is selectable so the row can be re-pointed; the row's own
+    // asset is appended in case portfolios haven't resolved yet.
+    final assets = ref
+            .read(portfoliosProvider)
+            .value
+            ?.nodes
+            .expand((n) => n.assets.map((a) => a.asset))
+            .toList() ??
+        <Asset>[];
+    if (!assets.any((a) => a.id == row.asset.id)) assets.add(row.asset);
+
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: const Color(0x73291C12),
+      // TransactionSheet supplies its own SheetShell — do not wrap it again.
+      builder: (_) => TransactionSheet(
+        side: row.tx.side,
+        assets: assets,
+        initialAsset: row.asset,
+        existing: row.tx,
+      ),
     );
   }
 

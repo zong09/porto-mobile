@@ -5,6 +5,8 @@ import 'package:porto_mobile/src/db/database.dart';
 import 'package:porto_mobile/src/db/misc_dao.dart';
 import 'package:porto_mobile/src/repos/settings_repo.dart';
 import 'package:porto_mobile/src/repos/backup_repo.dart';
+import 'package:porto_mobile/src/repos/portfolio_repo.dart';
+import 'package:porto_mobile/src/state/portfolios_notifier.dart';
 import 'package:porto_mobile/src/state/providers.dart';
 import 'package:porto_mobile/src/state/settings_notifier.dart';
 
@@ -92,6 +94,28 @@ void main() {
     expect(assets.first.symbol, 'BTC');
 
     db1.close();
+  });
+
+  // ── 3b. Wipe via an empty import (Settings › ลบข้อมูลทั้งหมด) ──────
+
+  test('importFromJson({}) wipes data and refreshes portfoliosProvider',
+      () async {
+    await container
+        .read(portfolioRepoProvider)
+        .create(name: 'Main', color: 0);
+
+    // Prime the cache so a stale read would be observable.
+    final before = await container.read(portfoliosProvider.future);
+    expect(before.nodes, hasLength(1));
+
+    await container.read(settingsProvider.notifier).importFromJson(const {});
+
+    // Rows are gone...
+    expect(await db.select(db.portfolios).get(), isEmpty);
+    // ...and the notifier no longer serves the cached portfolio. Without the
+    // invalidate in importFromJson this still returns the old node.
+    final after = await container.read(portfoliosProvider.future);
+    expect(after.nodes, isEmpty);
   });
 
   // ── 4. SettingsNotifier (§10.4 harness) ──────────────────────────

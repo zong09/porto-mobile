@@ -133,4 +133,79 @@ void main() {
     final ip = tester.widget<IgnorePointer>(_currencyIgnorePointer());
     expect(ip.ignoring, isTrue);
   });
+
+  // ── create-portfolio sheet ──────────────────────────────────────────────
+
+  testWidgets('create pill opens the sheet and saves a portfolio',
+      (tester) async {
+    final rec = _RecordingPortfolios(PortfoliosState(nodes: [_node()]));
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [portfoliosProvider.overrideWith(() => rec)],
+      child: const MaterialApp(home: PortfoliosScreen()),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('+ สร้างพอร์ต'));
+    await tester.pumpAndSettle();
+
+    // Sheet chrome comes from showPortoSheet, so the title is rendered.
+    expect(find.text('สร้างพอร์ตใหม่'), findsOneWidget);
+
+    await tester.enterText(find.byType(TextField), 'พอร์ตใหม่');
+    await tester.tap(find.text('บันทึก'));
+    await tester.pumpAndSettle();
+
+    expect(rec.added, isNotNull);
+    expect(rec.added!['name'], 'พอร์ตใหม่');
+    expect(rec.added!['color'], 0);
+  });
+
+  testWidgets('create sheet rejects an empty name', (tester) async {
+    final rec = _RecordingPortfolios(PortfoliosState(nodes: [_node()]));
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [portfoliosProvider.overrideWith(() => rec)],
+      child: const MaterialApp(home: PortfoliosScreen()),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('+ สร้างพอร์ต'));
+    await tester.pumpAndSettle();
+
+    // Save with a blank name — PortfolioRepo.create would throw, so the sheet
+    // must stop it here and stay open.
+    await tester.tap(find.text('บันทึก'));
+    await tester.pumpAndSettle();
+
+    expect(rec.added, isNull);
+    expect(find.text('กรุณากรอกชื่อพอร์ต'), findsOneWidget);
+  });
+
+  testWidgets('dashed create-new card opens the sheet too', (tester) async {
+    await tester.pumpWidget(_app(PortfoliosState(nodes: [_node()])));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('+ สร้างพอร์ตใหม่'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('สร้างพอร์ตใหม่'), findsWidgets);
+    expect(tester.takeException(), isNull);
+  });
+}
+
+/// Records addPortfolio instead of hitting the repo.
+class _RecordingPortfolios extends PortfoliosNotifier {
+  final PortfoliosState _s;
+  Map<String, dynamic>? added;
+
+  _RecordingPortfolios(this._s);
+
+  @override
+  Future<PortfoliosState> build() async => _s;
+
+  @override
+  Future<void> addPortfolio({required String name, required int color}) async {
+    added = {'name': name, 'color': color};
+  }
 }

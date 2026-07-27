@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porto_mobile/src/db/database.dart';
 import 'package:porto_mobile/src/domain/formatters.dart';
 import 'package:porto_mobile/src/state/display_money.dart';
+import 'package:porto_mobile/src/state/portfolios_notifier.dart';
 import 'package:porto_mobile/src/state/transactions_notifier.dart';
 import 'package:porto_mobile/src/ui/screens/transactions.dart';
 import 'package:porto_mobile/src/ui/widgets/transaction_sheet.dart';
@@ -303,6 +304,76 @@ void main() {
     expect(find.text('฿'), findsNWidgets(2));
     expect(find.text(r'$'), findsNothing);
   });
+
+  // ── Test 6: asset selector actually selects ───────────────────────────
+
+  testWidgets('asset selector opens a picker and switches the asset',
+      (tester) async {
+    final btc = _asset(id: 'a1', symbol: 'BTC', name: 'Bitcoin');
+    final ptt =
+        _asset(id: 'a2', symbol: 'PTT', name: 'PTT', currency: 'THB', type: 'th');
+
+    await tester.pumpWidget(ProviderScope(
+      child: MaterialApp(
+        home: Scaffold(
+          body: TransactionSheet(
+            side: 'buy',
+            assets: [btc, ptt],
+            initialAsset: btc,
+          ),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Bitcoin BTC'), findsOneWidget);
+    expect(find.text(r'$'), findsNWidgets(2));
+
+    await tester.tap(find.text('เปลี่ยน \u{203A}'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('PTT PTT'));
+    await tester.pumpAndSettle();
+
+    // Selector swapped, and the native-currency suffixes followed it.
+    expect(find.text('PTT PTT'), findsOneWidget);
+    expect(find.text('Bitcoin BTC'), findsNothing);
+    expect(find.text('฿'), findsNWidgets(2));
+  });
+
+  // ── Test 7: tapping a row edits the transaction ───────────────────────
+
+  testWidgets('tapping a tx row opens the sheet in edit mode', (tester) async {
+    final asset = _asset(id: 'a1', symbol: 'BTC', name: 'Bitcoin');
+    final tx = _tx(id: 't9', assetId: 'a1', side: 'buy', quantity: 3, price: 70);
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        transactionsProvider.overrideWith(() => _FakeTx(
+              TransactionsState(
+                  groups: [_group(rows: [_row(tx: tx, asset: asset)])]),
+            )),
+        portfoliosProvider.overrideWith(() => _FakeEmptyPortfolios()),
+      ],
+      child: const MaterialApp(home: TransactionsScreen()),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ซื้อ BTC'));
+    await tester.pumpAndSettle();
+
+    // Edit mode is titled for what it does, and prefills from the tx.
+    expect(find.text('แก้ไขรายการ'), findsOneWidget);
+    expect(find.text('Bitcoin BTC'), findsOneWidget);
+    expect(find.widgetWithText(TextField, '3.0'), findsOneWidget);
+    expect(find.widgetWithText(TextField, '70.0'), findsOneWidget);
+  });
+}
+
+/// Portfolios never resolve here — _editTransaction must still offer the row's
+/// own asset so the sheet can open.
+class _FakeEmptyPortfolios extends PortfoliosNotifier {
+  @override
+  Future<PortfoliosState> build() async => const PortfoliosState(nodes: []);
 }
 
 // ── Recording fake notifier ───────────────────────────────────────────────

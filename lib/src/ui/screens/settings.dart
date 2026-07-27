@@ -12,7 +12,16 @@ class SettingsScreen extends ConsumerWidget {
   final VoidCallback? onExport;
   final VoidCallback? onImport;
 
-  const SettingsScreen({super.key, this.onExport, this.onImport});
+  /// Fired after the ลบข้อมูลทั้งหมด confirm dialog is accepted. AppShell owns
+  /// it because wiping needs the notifier + a result snackbar. Null → no-op.
+  final VoidCallback? onDeleteAll;
+
+  const SettingsScreen({
+    super.key,
+    this.onExport,
+    this.onImport,
+    this.onDeleteAll,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -29,6 +38,7 @@ class SettingsScreen extends ConsumerWidget {
           context: context,
           onExport: onExport,
           onImport: onImport,
+          onDeleteAll: onDeleteAll,
         );
       },
     );
@@ -41,6 +51,7 @@ class _SettingsBody extends StatelessWidget {
   final BuildContext context;
   final VoidCallback? onExport;
   final VoidCallback? onImport;
+  final VoidCallback? onDeleteAll;
 
   const _SettingsBody({
     required this.state,
@@ -48,6 +59,7 @@ class _SettingsBody extends StatelessWidget {
     required this.context,
     this.onExport,
     this.onImport,
+    this.onDeleteAll,
   });
 
   @override
@@ -186,9 +198,10 @@ class _SettingsBody extends StatelessWidget {
                           ),
                           _destructiveRow(
                             'ลบข้อมูลทั้งหมด',
-                            () => _showDeleteConfirm(context, () {
-                              // destructive action placeholder
-                            }),
+                            () => _showDeleteConfirm(
+                              context,
+                              () => onDeleteAll?.call(),
+                            ),
                           ),
                         ],
                       ),
