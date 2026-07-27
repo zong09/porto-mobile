@@ -19,7 +19,7 @@ class _TransactionsScreenState
     extends ConsumerState<TransactionsScreen> {
   String _filter = 'all'; // all | buy | sell | deposit-withdraw
 
-  static const _pillLabels = ['ทั้งหมด', 'ซื้้่อ', 'ขาย', 'ฝาก/ถอน'];
+  static const _pillLabels = ['ทั้งหมด', 'ซื้อ', 'ขาย', 'ฝาก/ถอน'];
   static const _filterKeys = ['all', 'buy', 'sell', 'deposit-withdraw'];
 
   int _activePill = 0;
@@ -163,7 +163,7 @@ class _TransactionsScreenState
   static String _sideLabel(String side) {
     switch (side) {
       case 'buy':
-        return 'ซื้้่อ';
+        return 'ซื้อ';
       case 'sell':
         return 'ขาย';
       case 'deposit':
@@ -188,7 +188,7 @@ class _TransactionsScreenState
         final groups = state.groups;
 
         // Compute buy/sell totals for summary
-        final totals = <String, double>{'ซื้้่อ': 0, 'ขาย': 0};
+        final totals = <String, double>{'ซื้อ': 0, 'ขาย': 0};
         for (final g in groups) {
           for (final row in g.rows) {
             final side = row.tx.side;

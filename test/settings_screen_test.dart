@@ -67,7 +67,7 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        expect(find.text('ตั้้งค่า'), findsOneWidget);
+        expect(find.text('ตั้งค่า'), findsOneWidget);
         expect(find.text('฿ THB'), findsOneWidget);
         expect(find.text('ไทย'), findsOneWidget);
       });
@@ -120,8 +120,8 @@ void main() {
         await tester.pumpAndSettle();
 
         // Tap export row
-        await tester.ensureVisible(find.text('สำรองข้อมูลลงไฟล'));
-        await tester.tap(find.text('สำรองข้อมูลลงไฟล'));
+        await tester.ensureVisible(find.text('สำรองข้อมูลลงไฟล์'));
+        await tester.tap(find.text('สำรองข้อมูลลงไฟล์'));
         await tester.pump();
         expect(exportFired, isTrue);
 
@@ -178,7 +178,7 @@ void main() {
           ),
         );
 
-        expect(find.text('ไมมมีข้อมลราคายอนหลง'), findsOneWidget);
+        expect(find.text('ไม่มีข้อมูลราคาย้อนหลัง'), findsOneWidget);
         expect(find.byType(AreaChart), findsNothing);
       });
 }

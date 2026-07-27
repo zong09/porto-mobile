@@ -63,7 +63,7 @@ class _LiabilityAdjustSheetState
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
               Text(
-                'ยอดคงเหลืือ',
+                'ยอดคงเหลือ',
                 style: const TextStyle(
                   fontSize: 12.5,
                   fontWeight: FontWeight.w600,
@@ -105,7 +105,7 @@ class _LiabilityAdjustSheetState
               _segmentedPill('จ่าย (pay)', _type == 'pay',
                   () => setState(() => _type = 'pay')),
               const SizedBox(width: 3),
-              _segmentedPill('เพิ่่ม (add)', _type == 'add',
+              _segmentedPill('เพิ่ม (add)', _type == 'add',
                   () => setState(() => _type = 'add')),
             ],
           ),
@@ -113,9 +113,9 @@ class _LiabilityAdjustSheetState
 
         const SizedBox(height: 14),
 
-        // จำนวนเงิิน
+        // จำนวนเงิน
         const Text(
-          'จำนวนเงิิน',
+          'จำนวนเงิน',
           style: TextStyle(
             fontSize: 12.5,
             fontWeight: FontWeight.w600,
@@ -186,7 +186,7 @@ class _LiabilityAdjustSheetState
               ),
             ),
             child: const Text(
-              'บันทึ',
+              'บันทึก',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,
@@ -267,9 +267,9 @@ class _LiabilityCreateSheetState
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // ชื่่อ
+        // ชื่อ
         const Text(
-          'ชื่่อ',
+          'ชื่อ',
           style: TextStyle(
             fontSize: 12.5,
             fontWeight: FontWeight.w600,
@@ -289,9 +289,9 @@ class _LiabilityCreateSheetState
 
         const SizedBox(height: 14),
 
-        // จำนวนเงิิน
+        // จำนวนเงิน
         const Text(
-          'จำนวนเงิิน',
+          'จำนวนเงิน',
           style: TextStyle(
             fontSize: 12.5,
             fontWeight: FontWeight.w600,
@@ -313,9 +313,9 @@ class _LiabilityCreateSheetState
 
         const SizedBox(height: 14),
 
-        // สกุลเงิิน — segmented
+        // สกุลเงิน — segmented
         const Text(
-          'สกุลเงิิน',
+          'สกุลเงิน',
           style: TextStyle(
             fontSize: 12.5,
             fontWeight: FontWeight.w600,
@@ -355,7 +355,7 @@ class _LiabilityCreateSheetState
               ),
             ),
             child: const Text(
-              'บันทึ',
+              'บันทึก',
               style: TextStyle(
                 fontSize: 14,
                 fontWeight: FontWeight.w700,

@@ -116,7 +116,7 @@ class _ChartSheetState extends State<ChartSheet> {
         padding: const EdgeInsets.symmetric(vertical: 20),
         child: Center(
           child: Text(
-            'ไมมมีข้อมลราคายอนหลง',
+            'ไม่มีข้อมูลราคาย้อนหลัง',
             style: const TextStyle(
               fontSize: 14,
               color: AppColors.muted2,

@@ -56,7 +56,7 @@ class PortfoliosScreen extends ConsumerWidget {
                   Row(
                     children: [
                       const Text(
-                        'พอรต์ของฉัน',
+                        'พอร์ตของฉัน',
                         style: TextStyle(
                           fontSize: 22,
                           fontWeight: FontWeight.w700,
@@ -652,7 +652,7 @@ class _FeaturedAssetCard extends StatelessWidget {
             children: [
               Expanded(
                 child: _ActionButton(
-                  label: 'ซื้่อเพิ่ม',
+                  label: 'ซื้อเพิ่ม',
                   bgColor: const Color(0xFFDDF3F3),
                   fgColor: const Color(0xFF177E81),
                   onTap: () => Navigator.of(context).pop(),

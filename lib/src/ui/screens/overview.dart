@@ -42,7 +42,7 @@ class OverviewScreen extends ConsumerWidget {
                 ),
               ),
               const Spacer(),
-              _pill('ในเครื่่อง', 11, 3, 11,
+              _pill('ในเครื่อง', 11, 3, 11,
                   bg: const Color(0x29FFFFFF)),
               const SizedBox(width: 8),
               _pill('฿ THB', 11.5, 3, 12,
@@ -79,7 +79,7 @@ class OverviewScreen extends ConsumerWidget {
               _gainPill(summary.todayPlThb),
               const SizedBox(width: 8),
               Text(
-                '+${Formatters.pct((summary.todayPlThb / (summary.netWorthThb - summary.todayPlThb) * 100)).replaceAll('%', '').replaceAll('+', '').replaceAll('-', '')} · วันนนี้ +${Formatters.money(summary.todayPlThb)}',
+                '+${Formatters.pct((summary.todayPlThb / (summary.netWorthThb - summary.todayPlThb) * 100)).replaceAll('%', '').replaceAll('+', '').replaceAll('-', '')} · วันนี้ +${Formatters.money(summary.todayPlThb)}',
                 style: const TextStyle(
                   fontSize: 12,
                   color: Color(0xCCFAF5EC), // rgba(250,245,236,0.8)
@@ -165,7 +165,7 @@ class OverviewScreen extends ConsumerWidget {
         if (st.summary == null) {
           return const Center(
             child: Text(
-              'เริ่้มใช้เลย',
+              'เริ่มใช้เลย',
               style: TextStyle(fontSize: 18, color: Colors.white),
             ),
           );
@@ -252,7 +252,7 @@ class OverviewScreen extends ConsumerWidget {
                             Row(
                               children: [
                                 const Text(
-                                  'พอรต์ของฉน',
+                                  'พอร์ตของฉัน',
                                   style: TextStyle(
                                     fontSize: 15,
                                     fontWeight: FontWeight.w700,
@@ -260,7 +260,7 @@ class OverviewScreen extends ConsumerWidget {
                                 ),
                                 const Spacer(),
                                 Text(
-                                  'ดทู้งหมด',
+                                  'ดูทั้งหมด',
                                   style: const TextStyle(
                                     fontSize: 12,
                                     fontWeight: FontWeight.w700,

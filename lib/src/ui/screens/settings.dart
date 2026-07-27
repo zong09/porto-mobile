@@ -74,7 +74,7 @@ class _SettingsBody extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   const Text(
-                    'ตั้้งค่า',
+                    'ตั้งค่า',
                     style: TextStyle(
                       fontSize: 22,
                       fontWeight: FontWeight.w700,
@@ -105,7 +105,7 @@ class _SettingsBody extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'ไมม่ีบญัชี ไม่ต้งอโหลกอิน',
+                                'ไม่มีบัญชี ไม่ต้องล็อกอิน',
                                 style: const TextStyle(
                                   fontSize: 13.5,
                                   fontWeight: FontWeight.w700,
@@ -113,7 +113,7 @@ class _SettingsBody extends StatelessWidget {
                                 ),
                               ),
                               Text(
-                                'ข้อมูลทง้หมดเกบในเคร่อื้งของคุณเท่านั้่น',
+                                'ข้อมูลทั้งหมดเก็บในเครื่องของคุณเท่านั้น',
                                 style: const TextStyle(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w700,
@@ -140,8 +140,8 @@ class _SettingsBody extends StatelessWidget {
                 child: SingleChildScrollView(
                   child: Column(
                     children: [
-                      // --- Section 1: ทว่ไป ---
-                      _sectionHeader('ทว่ไป'),
+                      // --- Section 1: ทั่วไป ---
+                      _sectionHeader('ทั่วไป'),
                       const SizedBox(height: 11),
                       DividedCard(
                         rows: [
@@ -163,8 +163,8 @@ class _SettingsBody extends StatelessWidget {
                       const SizedBox(height: 11),
                       DividedCard(
                         rows: [
-                          _toggleRow('ปลดล็อกดว้ย Face ID', true),
-                          _toggleRow('ซ่อนยอดเงอนเม่อเปดแอป', false),
+                          _toggleRow('ปลดล็อกด้วย Face ID', true),
+                          _toggleRow('ซ่อนยอดเงินเมื่อเปิดแอป', false),
                         ],
                       ),
                       const SizedBox(height: 11),
@@ -175,17 +175,17 @@ class _SettingsBody extends StatelessWidget {
                       DividedCard(
                         rows: [
                           _actionRow(
-                            'สำรองข้อมูลลงไฟล',
-                            'สงออกทง้หมดเปนไฟลเดยว',
+                            'สำรองข้อมูลลงไฟล์',
+                            'ส่งออกทั้งหมดเป็นไฟล์เดียว',
                             () => onExport?.call(),
                           ),
                           _actionRow(
                             'นำเข้าข้อมูล',
-                            'จากไฟลสำรอง หรอ CSV',
+                            'จากไฟล์สำรอง หรือ CSV',
                             () => onImport?.call(),
                           ),
                           _destructiveRow(
-                            'ลบข้อมลทง้หมด',
+                            'ลบข้อมูลทั้งหมด',
                             () => _showDeleteConfirm(context, () {
                               // destructive action placeholder
                             }),
@@ -196,7 +196,7 @@ class _SettingsBody extends StatelessWidget {
 
                       // Footer
                       const Text(
-                        'Porto 1.0 · ทำงานออฟไลนได 100%',
+                        'Porto 1.0 · ทำงานออฟไลน์ได้ 100%',
                         style: TextStyle(
                           fontSize: 11,
                           color: AppColors.muted2,
@@ -228,7 +228,7 @@ class _SettingsBody extends StatelessWidget {
     final label = currency == 'THB' ? '฿ THB' : '\$ USD';
     return ListRowTile(
       leading: const SizedBox.shrink(),
-      title: 'สกุลเงนหลก',
+      title: 'สกุลเงินหลัก',
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
@@ -342,12 +342,12 @@ class _SettingsBody extends StatelessWidget {
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('ลบข้อมลทง้หมด'),
-        content: const Text('คุณมถุนใจหรอไม? การลงนทำใหข้อมลหายทง้หมด'),
+        title: const Text('ลบข้อมูลทั้งหมด'),
+        content: const Text('คุณมั่นใจหรือไม่? การลบนี้ทำให้ข้อมูลหายทั้งหมด'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(),
-            child: const Text('ยกเลง'),
+            child: const Text('ยกเลิก'),
           ),
           TextButton(
             onPressed: () {

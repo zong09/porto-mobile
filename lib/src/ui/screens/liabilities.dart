@@ -62,7 +62,7 @@ class LiabilitiesScreen extends ConsumerWidget {
                                 Navigator.of(context).pop(),
                           ),
                           const Text(
-                            'หนี้สืิิน',
+                            'หนี้สิน',
                             style: TextStyle(
                               fontSize: 22,
                               fontWeight: FontWeight.w700,
@@ -74,7 +74,7 @@ class LiabilitiesScreen extends ConsumerWidget {
                             onTap: () {
                               showPortoSheet(
                                 context,
-                                title: 'เพิ่่มหนี้สิน',
+                                title: 'เพิ่มหนี้สิน',
                                 builder: (_) =>
                                     const LiabilityCreateSheet(),
                               );
@@ -91,7 +91,7 @@ class LiabilitiesScreen extends ConsumerWidget {
                                       horizontal: 14,
                                       vertical: 5),
                               child: const Text(
-                                '＋ เพิ่่มหนี้สิน',
+                                '＋ เพิ่มหนี้สิน',
                                 style: TextStyle(
                                   fontSize: 11.5,
                                   fontWeight: FontWeight.w700,
@@ -146,7 +146,7 @@ class LiabilitiesScreen extends ConsumerWidget {
                             const SizedBox(height: 40),
                             Center(
                               child: Text(
-                                'ยังไมมีหนี้สิน — เพิ่่มให Net Worth แม่นยำขึ้น',
+                                'ยังไม่มีหนี้สิน — เพิ่มให้ Net Worth แม่นยำขึ้น',
                                 style: TextStyle(
                                   fontSize: 13,
                                   color: AppColors.muted,
@@ -212,7 +212,7 @@ class LiabilitiesScreen extends ConsumerWidget {
                               onTap: () {
                                 showPortoSheet(
                                   context,
-                                  title: 'เพิ่่มหนี้สินใหม',
+                                  title: 'เพิ่มหนี้สินใหม่',
                                   builder: (_) =>
                                       const LiabilityCreateSheet(),
                                 );
@@ -234,7 +234,7 @@ class LiabilitiesScreen extends ConsumerWidget {
                                         vertical: 13),
                                 child: Center(
                                   child: Text(
-                                    '＋ เพิ่่มหนี้สินใหม',
+                                    '＋ เพิ่มหนี้สินใหม่',
                                     style: const TextStyle(
                                       fontSize: 12.5,
                                       fontWeight:

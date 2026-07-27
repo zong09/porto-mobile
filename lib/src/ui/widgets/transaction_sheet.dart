@@ -80,9 +80,9 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
   static String _title(String side) {
     switch (side) {
       case 'buy':
-        return 'ซื้้่อสินทรพย์';
+        return 'ซื้อสินทรัพย์';
       case 'sell':
-        return 'ขายสินทรพย์';
+        return 'ขายสินทรัพย์';
       case 'deposit':
         return 'ฝากเงิน';
       case 'withdraw':
@@ -171,7 +171,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
                 Text(
                   _selected != null
                       ? '${_selected!.name} ${_selected!.symbol}'
-                      : 'เลื้้่อสินทรพย์',
+                      : 'เลือกสินทรัพย์',
                   style: const TextStyle(
                     fontSize: 14.5,
                     fontWeight: FontWeight.w700,
@@ -190,7 +190,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
             ),
           ),
           Text(
-            'เปลี่่ยน \u{203A}',
+            'เปลี่ยน \u{203A}',
             style: const TextStyle(
               fontSize: 13,
               fontWeight: FontWeight.w600,
@@ -219,7 +219,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
         Expanded(
           child: _numberInput(
             controller: _priceCtrl,
-            label: 'ราคาต่อนวหนวย',
+            label: 'ราคาต่อหน่วย',
             suffix: '฿',
           ),
         ),
@@ -273,7 +273,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
         Expanded(
           child: _numberInput(
             controller: _feeCtrl,
-            label: 'ค่าธรรมเนียม (ถ้ามมี)',
+            label: 'ค่าธรรมเนียม (ถ้ามี)',
             suffix: '฿',
           ),
         ),
@@ -286,7 +286,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'วนที่',
+          'วันที่',
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w700,
@@ -319,7 +319,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const Text(
-          'โน้ต (ไมบ้ังคับ)',
+          'โน้ต (ไม่บังคับ)',
           style: TextStyle(
             fontSize: 12,
             fontWeight: FontWeight.w700,
@@ -337,7 +337,7 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
             controller: _noteCtrl,
             maxLines: 2,
             decoration: const InputDecoration(
-              hintText: 'เชน DCA ประจำเดืิอน...',
+              hintText: 'เช่น DCA ประจำเดือน...',
               border: InputBorder.none,
             ),
           ),

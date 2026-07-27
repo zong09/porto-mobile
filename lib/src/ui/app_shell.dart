@@ -206,7 +206,7 @@ class _AddSheetContent extends StatelessWidget {
               icon: '↓',
               iconBg: const Color(0xFFDDF3F3),
               iconFg: AppColors.gain,
-              title: 'ซื้้อสินทรพย์',
+              title: 'ซื้อสินทรัพย์',
               subtitle: 'หุ้น คริปโต กองทุน ทอง',
               onTap: () => onSelect('buy'),
             ),
@@ -214,8 +214,8 @@ class _AddSheetContent extends StatelessWidget {
               icon: '↑',
               iconBg: const Color(0xFFFCDFD4),
               iconFg: AppColors.loss,
-              title: 'ขายสินทรพย์',
-              subtitle: 'บันทึก Realized P/L อัตโนมัต',
+              title: 'ขายสินทรัพย์',
+              subtitle: 'บันทึก Realized P/L อัตโนมัติ',
               onTap: () => onSelect('sell'),
             ),
             _AddGridItem(
@@ -223,15 +223,15 @@ class _AddSheetContent extends StatelessWidget {
               iconBg: const Color(0xFFFBEBD2),
               iconFg: AppColors.gold,
               title: 'ฝาก / ถอนเงิน',
-              subtitle: 'เงินฝาก บัญชอออมทรพย์',
+              subtitle: 'เงินฝาก บัญชีออมทรัพย์',
               onTap: () => onSelect('deposit'),
             ),
             _AddGridItem(
               icon: '−',
               iconBg: const Color(0xFFF6E4EA),
               iconFg: const Color(0xFFA84E71),
-              title: 'เพิ่่มหน้สิน',
-              subtitle: 'สินเชื่่อ บัตรเครดต ผ่อนชำระ',
+              title: 'เพิ่มหนี้สิน',
+              subtitle: 'สินเชื่อ บัตรเครดิต ผ่อนชำระ',
               onTap: () => onSelect('liability'),
             ),
           ],
@@ -245,9 +245,7 @@ class _AddSheetContent extends StatelessWidget {
           ),
           padding: const EdgeInsets.all(16),
           child: Text(
-            'ข้อมลอย่ในเครื่องของคณ — '
-            'ในเครื่องของคณ'
-            ' ไม่มีบัญชี ไม่ต้องล็อกอิน',
+            'ข้อมูลอยู่ในเครื่องของคุณ — ไม่มีบัญชี ไม่ต้องล็อกอิน',
             style: const TextStyle(
               fontSize: 12,
               color: Color(0xFF6B5D49),

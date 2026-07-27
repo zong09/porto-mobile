@@ -116,9 +116,9 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
-  // ── Test 2: filter pill ซื้้่อ shows only buys ──────────────────────────
+  // ── Test 2: filter pill ซื้อ shows only buys ──────────────────────────
 
-  testWidgets('filter pill ซื้้่อ shows only buys', (tester) async {
+  testWidgets('filter pill ซื้อ shows only buys', (tester) async {
     final groups = [
       _group(
         date: '2026-07-10',
@@ -133,17 +133,17 @@ void main() {
     await tester.pumpAndSettle();
 
     // Both buy and sell rows visible initially
-    expect(find.textContaining('ซื้้่อ BTC'), findsOneWidget);
+    expect(find.textContaining('ซื้อ BTC'), findsOneWidget);
     expect(find.textContaining('ขาย ETH'), findsOneWidget);
 
-    // Tap the "ซื้้่อ" pill (second pill)
-    final pillFinder = find.text('ซื้้่อ');
+    // Tap the "ซื้อ" pill (second pill)
+    final pillFinder = find.text('ซื้อ');
     expect(pillFinder, findsOneWidget);
     await tester.tap(pillFinder);
     await tester.pumpAndSettle();
 
     // Buy row still present
-    expect(find.textContaining('ซื้้่อ BTC'), findsOneWidget);
+    expect(find.textContaining('ซื้อ BTC'), findsOneWidget);
     // Sell row gone
     expect(find.textContaining('ขาย ETH'), findsNothing);
   });
