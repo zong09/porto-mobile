@@ -3,6 +3,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../db/database.dart';
 import '../repos/liability_repo.dart';
+import 'overview_notifier.dart';
 
 part 'liabilities_notifier.freezed.dart';
 part 'liabilities_notifier.g.dart';
@@ -21,7 +22,11 @@ class LiabilitiesNotifier extends _$LiabilitiesNotifier {
   Future<LiabilitiesState> build() async =>
       LiabilitiesState(liabilities: await _repo.all());
 
+  /// Liabilities are half of Net Worth, and `OverviewNotifier.build` reads the
+  /// repos directly (`ref.read`, not `ref.watch`), so nothing propagates to it
+  /// — see the note on `PortfoliosNotifier._reload`.
   Future<void> _reload() async {
+    ref.invalidate(overviewProvider);
     ref.invalidateSelf();
     await future;
   }

@@ -3,6 +3,7 @@ import 'package:riverpod_annotation/riverpod_annotation.dart';
 import '../db/database.dart';
 import '../repos/transaction_repo.dart';
 import '../repos/asset_repo.dart';
+import 'overview_notifier.dart';
 import 'portfolios_notifier.dart';
 part 'transactions_notifier.freezed.dart';
 part 'transactions_notifier.g.dart';
@@ -54,8 +55,11 @@ class TransactionsNotifier extends _$TransactionsNotifier {
   /// stale quantities after any write here. Without this the ซื้อเพิ่ม / ขาย
   /// buttons in Portfolio detail appear to do nothing — same reason
   /// `SettingsNotifier.importFromJson` invalidates its neighbours.
+  /// `overviewProvider` is invalidated for the same reason — see the note on
+  /// `PortfoliosNotifier._reload`.
   Future<void> _reload() async {
     ref.invalidate(portfoliosProvider);
+    ref.invalidate(overviewProvider);
     ref.invalidateSelf();
     await future;
   }

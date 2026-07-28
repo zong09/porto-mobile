@@ -7,6 +7,7 @@ import '../domain/position_calculator.dart';
 import '../repos/portfolio_repo.dart';
 import '../repos/asset_repo.dart';
 import '../repos/transaction_repo.dart';
+import 'overview_notifier.dart';
 import 'transactions_notifier.dart';
 
 part 'portfolios_notifier.freezed.dart';
@@ -95,8 +96,13 @@ class PortfoliosNotifier extends _$PortfoliosNotifier {
   /// `TransactionsScreen` mounted on every tab, so nothing disposes it and it
   /// keeps rendering rows for transactions the DB no longer has. `saveAsset`
   /// has the milder version — a renamed asset leaves stale row titles.
+  ///
+  /// `overviewProvider` too: `OverviewNotifier.build` reads the repos directly
+  /// (`ref.read`, not `ref.watch`), so nothing propagates to it and the Net
+  /// Worth hero holds the pre-write number until pull-to-refresh.
   Future<void> _reload() async {
     ref.invalidate(transactionsProvider);
+    ref.invalidate(overviewProvider);
     ref.invalidateSelf();
     await future;
   }
