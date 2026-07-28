@@ -229,6 +229,29 @@ void main() {
     expect(rec.saved?.manualPrice, 25);
   });
 
+  testWidgets('editing a non-fund asset keeps its stored manual price',
+      (tester) async {
+    // manualPrice is the offline fallback for the live types
+    // (price_repository.dart:91), so an edit must pass Value.absent() rather
+    // than clear it just because the sheet shows no price field for crypto.
+    tester.view.physicalSize = const Size(2400, 3600); // 800x1200 logical
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final rec = _RecordingPortfolios(const PortfoliosState(nodes: []));
+    await tester.pumpWidget(_sheetApp(
+      AssetSheet(portfolioId: 'p1', existing: _asset(manualPrice: 5)),
+      notifier: () => rec,
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ราคาต่อหน่วย'), findsNothing);
+    await tester.tap(find.text('บันทึก'));
+    await tester.pumpAndSettle();
+
+    expect(rec.saved?.manualPrice, 5,
+        reason: 'saving a crypto asset wiped its offline fallback price');
+  });
+
   testWidgets('AssetSheet edit mode locks currency', (tester) async {
     await tester.pumpWidget(_sheetApp(
       AssetSheet(portfolioId: 'p1', existing: _asset(currency: 'USD')),
