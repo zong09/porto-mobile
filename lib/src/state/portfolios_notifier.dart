@@ -7,6 +7,7 @@ import '../domain/position_calculator.dart';
 import '../repos/portfolio_repo.dart';
 import '../repos/asset_repo.dart';
 import '../repos/transaction_repo.dart';
+import 'transactions_notifier.dart';
 
 part 'portfolios_notifier.freezed.dart';
 part 'portfolios_notifier.g.dart';
@@ -86,7 +87,16 @@ class PortfoliosNotifier extends _$PortfoliosNotifier {
     return PortfoliosState(nodes: nodes);
   }
 
+  /// The mirror of `TransactionsNotifier._reload`, which invalidates this
+  /// provider for the same reason. `transactions.assetId` and
+  /// `assets.portfolioId` both cascade, so deleting an asset or a portfolio
+  /// destroys transaction rows — and `TransactionsNotifier` never notices:
+  /// it is autoDispose, but `AppShell`'s `IndexedStack` keeps
+  /// `TransactionsScreen` mounted on every tab, so nothing disposes it and it
+  /// keeps rendering rows for transactions the DB no longer has. `saveAsset`
+  /// has the milder version — a renamed asset leaves stale row titles.
   Future<void> _reload() async {
+    ref.invalidate(transactionsProvider);
     ref.invalidateSelf();
     await future;
   }

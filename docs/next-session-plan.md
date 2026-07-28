@@ -34,6 +34,92 @@
 
 ---
 
+> ## ✅ ALL FOUR STEP-4 FINDINGS CLOSED 2026-07-28
+>
+> `flutter analyze lib test integration_test` clean, **196 tests green** (was 182).
+> Re-running the category-4 sweep over `lib/` now leaves only two uncalled
+> notifier methods, both deliberate (below).
+>
+> | Finding | Outcome |
+> |---|---|
+> | `ChartSheet` orphaned | **Wired.** `showAssetChartSheet` on the featured-asset sparkline, per `design-settings.md:38`. New `AssetChartSheet` wrapper fetches history and refetches on range switch. |
+> | `BarChart` orphaned | **Kept, unplaced — decided, not overlooked.** See below. |
+> | No way to edit or delete an asset | **Fixed.** Asset rows + featured-card header open `AssetSheet(existing:)`; ลบสินทรัพย์ sits in the edit sheet. |
+> | `deleteTransaction`, `saveLiability`, `deletePortfolio`, `reorderPortfolios` uncalled | **Two built, two deliberately not.** Detail below. |
+>
+> **A fifth uncalled method the step-4 table missed:** `deleteLiability`. The
+> sweep listed four; the repo-level `dao.deleteLiability` at
+> `liability_repo.dart:45` masked the notifier one, the same
+> "beware the obvious grep" trap recorded above. It is now wired too.
+>
+> ### Deliberately left uncalled — do not "find" these again
+>
+> - **`BarChart`.** Commissioned by `design-components.md` §6c, but **no screen
+>   in any of the five design docs places it.** It is also a different defect
+>   class from the rest: an unconstructed `CustomPainter` is dead *code*, not a
+>   dead *control* — nobody can tap it and be lied to. Inventing a placement
+>   would be scope invented from nothing. Delete it only when a design says
+>   where a bar chart goes, or explicitly drops it.
+> - **`reorderPortfolios`.** Drag-to-reorder appears in no design doc. The DAO
+>   and notifier are ready; the affordance needs a design first.
+> - **`deletePortfolio`.** Already decided last session ("speculative scope"),
+>   unchanged. Note it cascades assets → transactions, so it needs the same
+>   naming-confirm treatment as the three deletes that did land.
+>
+> ### Decisions taken while building
+>
+> - **Stock chart ranges are trimmed** to `1M 3M 1Y`, not the design's
+>   `1M 3M 6M 1Y ALL`. `PriceHistoryClient.stockHistory` maps only
+>   `7D/1M/3M/1Y` and silently falls back to `3mo` for anything else — a `6M`
+>   pill would have been a control that lies, which is what this plan exists to
+>   stop. Crypto keeps the full `7D 30D 90D 1Y`; every one hits a real branch.
+>   Widen it when the client learns those ranges, not before.
+> - **`ChartSheet` skips its own title when empty.** Presented through
+>   `showPortoSheet`, `SheetShell` already renders the title, and
+>   `design-settings.md` puts the title on the sheet, not in the body. The two
+>   existing bare-pump tests still pass a title and still see it.
+> - **Liability currency is locked on edit**, mirroring the asset rule.
+>   `liability_transactions` rows carry no currency of their own, so switching
+>   it would silently re-denominate the entire pay/add history. CONTRACTS does
+>   not state this — it locks only `assets.currency` (§7).
+> - **The adjust sheet pops `'edit'`** instead of stacking the edit form on top
+>   of its own now-stale balance banner; `liabilities.dart` re-presents. Same
+>   pop-with-a-value convention as the asset picker in `transaction_sheet.dart`.
+> - **`confirmDelete` / `DeleteButton`** are shared in
+>   `lib/src/ui/widgets/confirm_delete.dart` (three real call sites).
+>   `settings.dart:_showDeleteConfirm` was deliberately **not** folded into it —
+>   it works, and refactoring it was not part of this task.
+>
+> ### The bug wiring `deleteAsset` exposed — and why every widget test missed it
+>
+> `PortfoliosNotifier._reload()` only did `ref.invalidateSelf()`. Giving
+> `deleteAsset` a call site made that a real defect: the FK cascade drops the
+> asset's `transactions` rows, but `TransactionsNotifier` is never told, and
+> because `AppShell`'s `IndexedStack` keeps `TransactionsScreen` mounted it is
+> never disposed either — so the tab keeps rendering `ซื้อ BTC` for a row the DB
+> no longer has. Fixed by adding `ref.invalidate(transactionsProvider)`, the
+> exact mirror of the edge `TransactionsNotifier._reload` already had.
+>
+> **Every new widget test was green over it.** They all override the notifier
+> method itself (`_RecordingPortfolios.deleteAsset` just records the id), so
+> `_reload()` never runs and no cross-provider invalidation is exercised — the
+> same blind spot this plan already diagnosed for the repo-seeded smoke flow.
+> The check that catches it is notifier-level against a real in-memory
+> `AppDatabase`: `portfolios_notifier_test.dart` →
+> `'deleteAsset invalidates transactionsProvider'`. **Reach for that shape
+> whenever a mutation crosses providers** — a screen test cannot see it.
+>
+> ### Still open (pre-existing, not introduced here)
+>
+> - **Liability mutations never invalidate `overviewProvider`**, so Net Worth on
+>   Overview goes stale after a liability is added, adjusted, saved or deleted.
+>   `LiabilitiesNotifier._reload` has the same one-line gap
+>   `PortfoliosNotifier._reload` just had. Untouched here because
+>   `addLiability`/`adjust` already shipped with it — it is not a regression of
+>   this change, but it is the same bug.
+
+---
+
 ## Step 4 re-run — what the four sharper categories found
 
 Ran over `lib/` after the fixes. Every hit is the **same class of defect** as the

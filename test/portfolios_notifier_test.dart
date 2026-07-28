@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porto_mobile/src/db/database.dart';
 import 'package:porto_mobile/src/state/portfolios_notifier.dart';
 import 'package:porto_mobile/src/state/providers.dart';
+import 'package:porto_mobile/src/state/transactions_notifier.dart';
 import 'package:porto_mobile/src/repos/transaction_repo.dart';
 
 void main() {
@@ -115,5 +116,41 @@ void main() {
       n().saveAsset(asset.copyWith(currency: 'THB')),
       throwsA(isA<ArgumentError>()),
     );
+  });
+
+  test('deleteAsset invalidates transactionsProvider', () async {
+    // `transactions.assetId` cascades, so deleting an asset destroys its rows.
+    // TransactionsNotifier is autoDispose but AppShell's IndexedStack keeps
+    // TransactionsScreen mounted on every tab, so nothing disposes it and it
+    // would keep rendering rows for a transaction the DB no longer has —
+    // mirror that here with a listener rather than letting it dispose.
+    container.listen(transactionsProvider, (_, _) {});
+
+    await n().addPortfolio(name: 'Crypto', color: 0);
+    final pid = (await state()).nodes.first.portfolio.id;
+    await n().addAsset(
+      portfolioId: pid,
+      type: 'crypto',
+      symbol: 'BTC',
+      name: 'Bitcoin',
+      currency: 'USD',
+    );
+    final assetId = (await state()).nodes.first.assets.first.asset.id;
+
+    await container.read(transactionRepoProvider).add(
+          assetId: assetId,
+          side: 'buy',
+          quantity: 1,
+          price: 100,
+          date: '2026-07-01',
+        );
+    container.invalidate(transactionsProvider);
+    expect((await container.read(transactionsProvider.future)).groups,
+        hasLength(1));
+
+    await n().deleteAsset(assetId);
+
+    expect((await container.read(transactionsProvider.future)).groups, isEmpty,
+        reason: 'the tx list still shows a row whose asset is gone');
   });
 }
