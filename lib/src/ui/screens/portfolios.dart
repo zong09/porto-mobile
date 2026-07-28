@@ -5,6 +5,7 @@ import 'package:porto_mobile/src/state/display_money.dart';
 import 'package:porto_mobile/src/state/portfolios_notifier.dart';
 import 'package:porto_mobile/src/ui/theme/colors.dart';
 import 'package:porto_mobile/src/ui/widgets/area_chart.dart';
+import 'package:porto_mobile/src/ui/widgets/asset_sheet.dart';
 import 'package:porto_mobile/src/ui/widgets/cards.dart';
 import 'package:porto_mobile/src/ui/widgets/donut_chart.dart';
 import 'package:porto_mobile/src/ui/widgets/portfolio_sheet.dart';
@@ -138,6 +139,7 @@ class PortfoliosScreen extends ConsumerWidget {
                           (node) => _PortfolioCard(node: node, money: money)),
                       // Dashed create-new card
                       _CreateNewCard(
+                        label: '+ สร้างพอร์ตใหม่',
                         onTap: () => _showCreatePortfolioSheet(context),
                       ),
                     ],
@@ -165,14 +167,24 @@ class PortfoliosScreen extends ConsumerWidget {
 // -----------------------------------------------------------------------------
 
 class PortfolioDetailScreen extends ConsumerWidget {
+  /// The node as of the moment this screen was pushed — a FALLBACK only.
+  ///
+  /// The live node is re-read from [portfoliosProvider] on every build. Reading
+  /// this snapshot directly would freeze the screen: an asset added from here
+  /// would not appear until the user popped and re-entered.
   final PortfolioNode node;
 
   const PortfolioDetailScreen({super.key, required this.node});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final portfolio = node.portfolio;
-    final assets = node.assets;
+    final nodes =
+        ref.watch(portfoliosProvider).value?.nodes ?? const <PortfolioNode>[];
+    final live = nodes.where((n) => n.portfolio.id == node.portfolio.id);
+    final current = live.isEmpty ? node : live.first;
+
+    final portfolio = current.portfolio;
+    final assets = current.assets;
     final money = ref.watch(displayMoneyProvider).value ?? DisplayMoney.thb;
 
     // Aggregates across possibly-mixed currencies — convert before summing.
@@ -307,6 +319,19 @@ class PortfolioDetailScreen extends ConsumerWidget {
                           rows: assets.skip(1).map((an) => _AssetRow(an: an)).toList(),
                         ),
                       ],
+
+                      const SizedBox(height: 11),
+
+                      // Dashed add-asset card — the ONLY way to create an
+                      // asset, so it must render even when the list is empty.
+                      _CreateNewCard(
+                        label: '+ เพิ่มสินทรัพย์',
+                        onTap: () => showPortoSheet(
+                          context,
+                          title: 'เพิ่มสินทรัพย์',
+                          builder: (_) => AssetSheet(portfolioId: portfolio.id),
+                        ),
+                      ),
 
                       const SizedBox(height: 12),
 
@@ -537,11 +562,12 @@ class _PortfolioCard extends StatelessWidget {
   }
 }
 
-/// Dashed "create new" card at the end of the list.
+/// Dashed "create new" card at the end of a list.
 class _CreateNewCard extends StatelessWidget {
+  final String label;
   final VoidCallback onTap;
 
-  const _CreateNewCard({required this.onTap});
+  const _CreateNewCard({required this.label, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -559,10 +585,10 @@ class _CreateNewCard extends StatelessWidget {
           ),
         ),
         padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 13),
-        child: const Center(
+        child: Center(
           child: Text(
-            '+ สร้างพอร์ตใหม่',
-            style: TextStyle(
+            label,
+            style: const TextStyle(
               fontSize: 12.5,
               fontWeight: FontWeight.w700,
               color: Color(0xFFA89A86),
