@@ -7,7 +7,7 @@
 >
 > All three tasks closed, `tasks/T3.06.md` amended (step 5), audit re-run with the
 > four sharper categories (step 4 — **findings below, not yet fixed**).
-> `flutter analyze lib test integration_test` clean, **181 tests green** (was 176).
+> `flutter analyze lib test integration_test` clean, **182 tests green** (was 176).
 >
 > Decisions taken, for the record:
 > - **Entry point:** the recommended dashed "＋ เพิ่มสินทรัพย์" card. Renders even
@@ -53,8 +53,22 @@ warning landing a second time. Read the matched lines, never the count.
 | **No way to edit or delete an asset** | notifier method with no call site | `AssetSheet(existing:)` is passed only in a test, so its edit branch is unreachable; `saveAsset`'s sole call site sits inside it, and notifier `deleteAsset` has none. Asset rows in Portfolio detail are not tappable. The likely fix is symmetric with task 3: make `_AssetRow` / `_FeaturedAssetCard` open `AssetSheet(existing:)`. |
 | **`deleteTransaction`, `saveLiability`, `deletePortfolio`, `reorderPortfolios` uncalled** | notifier method with no call site | No UI deletes a transaction or edits a liability. Decide per item whether the design wants it before building. |
 
-Category 3 (action-labelled `Container` with no ancestor gesture handler) came up
-empty after the `แก้ไข` fix.
+**All four categories were run.** Categories 2 and 3 came up clean:
+
+- **Category 2** (`onTap`/`onPressed` that only calls `Navigator.pop()`) — five hits
+  in `lib/`, every one legitimate: the Portfolio detail back button
+  (`portfolios.dart:223`), two `SheetShell` close buttons, the delete-confirm
+  dialog's ยกเลิก (`settings.dart:362`), and `transaction_sheet.dart:141`, which
+  pops **with a value** to return the picked asset. Nothing to fix.
+- **Category 3** (action-labelled `Container`/`Text` with no ancestor gesture
+  handler) — empty after the `แก้ไข` fix. Every remaining action label resolves to
+  an `InkWell`, `GestureDetector`, or a `ListRowTile`/`_actionRow` with a callback;
+  each was checked by reading its enclosing widget, not by grep.
+
+One deliberate near-miss, listed so nobody "fixes" it twice: the two Settings
+switches (`settings.dart:316`) are `onChanged: null`, commented *"local UI only,
+inert in v1"*. A null `onChanged` renders a Switch visibly disabled, so it does
+not pretend to work — unlike the three controls this session fixed.
 
 ---
 
