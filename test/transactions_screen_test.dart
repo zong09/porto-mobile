@@ -390,6 +390,72 @@ void main() {
     expect(find.widgetWithText(TextField, '0.5'), findsOneWidget);
     expect(find.widgetWithText(TextField, '12.25'), findsOneWidget);
   });
+
+  // ── delete a transaction ────────────────────────────────────────────────
+  //
+  // `deleteTransaction` had no call site anywhere in lib/. Create mode must not
+  // grow the button — there is nothing to delete yet.
+
+  testWidgets('the delete button is edit-mode only', (tester) async {
+    final asset = _asset(id: 'a1', symbol: 'BTC');
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [transactionsProvider.overrideWith(() => _RecordingTx())],
+      child: MaterialApp(
+        home: Scaffold(
+          body: TransactionSheet(side: 'buy', assets: [asset],
+              initialAsset: asset),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ลบรายการนี้'), findsNothing);
+  });
+
+  testWidgets('ลบรายการนี้ confirms then calls deleteTransaction',
+      (tester) async {
+    // The delete button sits below บันทึกรายการ, past the default 600px surface.
+    tester.view.physicalSize = const Size(2400, 3600); // 800x1200 logical
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final asset = _asset(id: 'a1', symbol: 'BTC');
+    final tx = _tx(id: 't9', assetId: 'a1', side: 'buy', quantity: 3,
+        price: 70);
+    final rec = _RecordingTx();
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [transactionsProvider.overrideWith(() => rec)],
+      child: MaterialApp(
+        home: Scaffold(
+          body: TransactionSheet(side: 'buy', assets: [asset],
+              initialAsset: asset, existing: tx),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ลบรายการนี้'));
+    await tester.pumpAndSettle();
+
+    // The confirm names the row, so the user knows which one is going.
+    // (The date alone also matches the วันที่ field behind the dialog.)
+    expect(
+      find.text('ซื้อสินทรัพย์ BTC จำนวน 3.00 วันที่ 2026-07-10 — ย้อนกลับไม่ได้'),
+      findsOneWidget,
+    );
+
+    await tester.tap(find.text('ยกเลิก'));
+    await tester.pumpAndSettle();
+    expect(rec.deleted, isNull);
+
+    await tester.tap(find.text('ลบรายการนี้'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ลบ'));
+    await tester.pumpAndSettle();
+
+    expect(rec.deleted, 't9');
+  });
 }
 
 /// Portfolios never resolve here — _editTransaction must still offer the row's
@@ -404,10 +470,16 @@ class _FakeEmptyPortfolios extends PortfoliosNotifier {
 /// Fake notifier that records addTransaction calls for test assertions.
 class _RecordingTx extends TransactionsNotifier {
   Map<String, dynamic>? lastCall;
+  String? deleted;
 
   @override
   Future<TransactionsState> build() async =>
       const TransactionsState(groups: []);
+
+  @override
+  Future<void> deleteTransaction(String id) async {
+    deleted = id;
+  }
 
   @override
   Future<void> addTransaction({

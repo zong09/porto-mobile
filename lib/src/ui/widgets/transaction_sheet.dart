@@ -6,6 +6,7 @@ import '../../state/transactions_notifier.dart';
 import '../../db/database.dart';
 import '../theme/colors.dart';
 import 'cards.dart';
+import 'confirm_delete.dart';
 import 'sheet_shell.dart';
 
 /// Transaction form sheet — buy / sell / deposit / withdraw.
@@ -179,6 +180,11 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
 
             // Save button
             _saveButton(context),
+
+            if (widget.existing != null) ...[
+              const SizedBox(height: 4),
+              DeleteButton(label: 'ลบรายการนี้', onPressed: _delete),
+            ],
           ],
         ),
       ),
@@ -463,6 +469,23 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
       );
     }
 
+    if (mounted) Navigator.of(context).pop();
+  }
+
+  // ── delete logic ─────────────────────────────────────────────────────
+
+  /// A transaction is a leaf row — nothing cascades off it — so the confirm
+  /// names the row itself rather than a child count.
+  Future<void> _delete() async {
+    final e = widget.existing!;
+    final ok = await confirmDelete(
+      context,
+      title: 'ลบรายการ',
+      message: '${_title(widget.side)} ${_selected?.symbol ?? ''} '
+          'จำนวน ${Formatters.money(e.quantity)} วันที่ ${e.date} — ย้อนกลับไม่ได้',
+    );
+    if (!ok || !mounted) return;
+    await ref.read(transactionsProvider.notifier).deleteTransaction(e.id);
     if (mounted) Navigator.of(context).pop();
   }
 
