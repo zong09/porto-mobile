@@ -456,6 +456,55 @@ void main() {
 
     expect(rec.deleted, 't9');
   });
+
+  // ── the วันที่ field is a picker ─────────────────────────────────────────
+  //
+  // `_dateField` was a bare Container with no gesture handler above it, so
+  // `_date` never moved off its initState value: every new transaction was
+  // stamped today, and a wrong date on an existing row could not be corrected.
+  // `design-transactions.md:49` specifies a date *picker* field.
+
+  testWidgets('the วันที่ field opens a picker and the picked date is saved',
+      (tester) async {
+    // The picker dialog needs more room than the default 600px surface.
+    tester.view.physicalSize = const Size(2400, 3600); // 800x1200 logical
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final asset = _asset(id: 'a1', symbol: 'BTC');
+    final tx = _tx(id: 't9', assetId: 'a1', quantity: 2, date: '2026-07-10');
+    final rec = _RecordingTx();
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [transactionsProvider.overrideWith(() => rec)],
+      child: MaterialApp(
+        home: Scaffold(
+          body: TransactionSheet(side: 'buy', assets: [asset],
+              initialAsset: asset, existing: tx),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2026-07-10'), findsOneWidget);
+    await tester.tap(find.text('2026-07-10'));
+    await tester.pumpAndSettle();
+
+    // Scope the day finder to the dialog — the sheet behind it carries its own
+    // bare numbers in the qty/price/fee fields.
+    final dialog = find.byType(DatePickerDialog);
+    expect(dialog, findsOneWidget);
+    await tester.tap(find.descendant(of: dialog, matching: find.text('3')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('OK'));
+    await tester.pumpAndSettle();
+
+    // Assert both halves: the field shows the new date *and* saving carries it.
+    // A setState that never reached _save() passes the first one alone.
+    expect(find.text('2026-07-03'), findsOneWidget);
+    await tester.tap(find.text('บันทึกรายการ'));
+    await tester.pumpAndSettle();
+    expect(rec.saved?.date, '2026-07-03');
+  });
 }
 
 /// Portfolios never resolve here — _editTransaction must still offer the row's
@@ -471,6 +520,7 @@ class _FakeEmptyPortfolios extends PortfoliosNotifier {
 class _RecordingTx extends TransactionsNotifier {
   Map<String, dynamic>? lastCall;
   String? deleted;
+  Transaction? saved;
 
   @override
   Future<TransactionsState> build() async =>
@@ -479,6 +529,11 @@ class _RecordingTx extends TransactionsNotifier {
   @override
   Future<void> deleteTransaction(String id) async {
     deleted = id;
+  }
+
+  @override
+  Future<void> saveTransaction(Transaction t) async {
+    saved = t;
   }
 
   @override

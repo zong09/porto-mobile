@@ -345,6 +345,25 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
     );
   }
 
+  /// The design specifies a *picker* here. Without one `_date` never moves off
+  /// its `initState` value: every new transaction is stamped today, and a wrong
+  /// date on an existing row cannot be corrected.
+  Future<void> _pickDate() async {
+    final now = DateTime.now();
+    // `date` is a free-text column, so a stored value need not parse — and an
+    // imported row can sit in the future, which showDatePicker asserts on.
+    final stored = DateTime.tryParse(_date) ?? now;
+    final picked = await showDatePicker(
+      context: context,
+      initialDate: stored.isAfter(now) ? now : stored,
+      firstDate: DateTime(2000),
+      lastDate: now,
+    );
+    if (picked != null && mounted) {
+      setState(() => _date = DateFormat('yyyy-MM-dd').format(picked));
+    }
+  }
+
   Widget _dateField(BuildContext context) {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -358,17 +377,21 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
           ),
         ),
         const SizedBox(height: 6),
-        Container(
-          decoration: BoxDecoration(
-            color: AppColors.surface,
-            borderRadius: BorderRadius.circular(16),
-          ),
-          padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
-          child: Text(
-            _date,
-            style: const TextStyle(
-              fontSize: 13.5,
-              fontWeight: FontWeight.w600,
+        GestureDetector(
+          onTap: _pickDate,
+          behavior: HitTestBehavior.opaque,
+          child: Container(
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(16),
+            ),
+            padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 13),
+            child: Text(
+              _date,
+              style: const TextStyle(
+                fontSize: 13.5,
+                fontWeight: FontWeight.w600,
+              ),
             ),
           ),
         ),
