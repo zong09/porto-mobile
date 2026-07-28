@@ -128,6 +128,69 @@
 > Specified but **entirely unbuilt, not dead controls**: the first-run screen
 > CTAs (`design-overview.md:62`) and the `+ ใหม่` new-portfolio chip in the
 > transaction form (`design-transactions.md:50`).
+>
+> ### Two more dead controls, in `transaction_sheet.dart` — the sweep missed both
+>
+> That "entirely unbuilt" paragraph above was incomplete. Reading the sheet top
+> to bottom, rather than grepping it, turns up two controls that *are* built and
+> do not work — the worse class. Neither was in any Q1/Q2 output: Q1 inventories
+> the design side and both fields **are** in the design, and Q2 counts class
+> constructions, which says nothing about a field inside a widget that builds.
+> **Reading one file end to end found what two inventories structurally could
+> not.**
+>
+> 3. **The วันที่ field could not be picked** — ✅ **FIXED**, it now opens
+>    `showDatePicker`. `_dateField` was a bare `Container` > `Text(_date)` with
+>    no gesture handler anywhere above it (the whole file had four, none of them
+>    this one), while `design-transactions.md:49` specifies a date *picker*
+>    field. So `_date` never moved off its `initState` value: **every
+>    transaction was stamped today**, and a wrong date on an existing row could
+>    not be corrected. It sits in a 2-col grid beside a fee input that *is*
+>    editable, so it reads as a field — the `แก้ไข`-chip shape again.
+>
+>    `lastDate: DateTime.now()` — a future-dated transaction is a data-entry
+>    error, and this is the deliberate call, not an oversight. But `initialDate`
+>    is clamped and parsed with `tryParse`, because `date` is a free-text column
+>    and `importFromJson` can land a future or malformed value: `showDatePicker`
+>    *asserts* on `initialDate > lastDate`, so an imported row would crash the
+>    sheet on tap. Two lines of guard against a reachable input, not defensive
+>    padding.
+>
+>    The test asserts **both** halves — the field re-renders *and*
+>    `saveTransaction` carries the new date. A `setState` that never fed
+>    `_save()` passes the label assertion alone, the same "green for the wrong
+>    reason" trap recorded twice above. Written failing first: it died on
+>    `expect(find.byType(DatePickerDialog), findsOneWidget)`, which is the
+>    missing handler and nothing else.
+>
+> 4. **The โน้ต field silently discards what the user types** — ⚠️ **FOUND, NOT
+>    FIXED, and that is a decision.** `_noteCtrl` is created
+>    (`transaction_sheet.dart:45`), rendered with a label and a hint (`:381`),
+>    disposed (`:88`) — and never read by `_save()`. Grepping `note` across
+>    `lib/` returns those five lines and nothing else. The reason is upstream:
+>    **`Transactions` has no `note` column** (`tables.dart:31-44`), so there is
+>    nowhere to put it.
+>
+>    Deferred because persisting it is not the same size of job as it looks.
+>    `schemaVersion = 1` and the migration is `onCreate`-only
+>    (`database.dart:22-26`) — **this repo has never written an upgrade step.**
+>    Adding the column means authoring the project's first real migration, a
+>    drift regen, and new repo + notifier parameters. That is a new workstream,
+>    not the tail of this one. Deleting the field instead is not open either:
+>    `design-transactions.md:52` specifies it.
+>
+>    So it is recorded here in the same register as `BarChart` — a decision with
+>    a reason, not an omission. **Whoever takes it: the migration is the task,
+>    the UI is already built.**
+>
+> ### `เข้าพอร์ต` (`design-transactions.md:50`) is redundant, not missing
+>
+> Design field #4 is segmented portfolio chips plus the `+ ใหม่` chip, and the
+> sheet has no portfolio control at all — but a transaction's portfolio is
+> already determined by `assetId → asset.portfolioId`. A chip row here could
+> only either agree with the asset or contradict it. It is listed above as
+> "unbuilt"; it is more precisely **not needed against this schema**. Build it
+> only if assets ever become portfolio-independent.
 
 **Written:** 2026-07-28, at the end of the session that closed the four step-4
 findings (see `next-session-plan.md`).
