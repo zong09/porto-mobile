@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:intl/intl.dart';
-import '../../domain/currency_converter.dart';
 import '../../domain/formatters.dart';
 import '../../domain/net_worth_calculator.dart';
 import '../../state/display_money.dart';
@@ -30,18 +29,6 @@ class OverviewScreen extends ConsumerWidget {
   });
 
   // ── portfolio list ───────────────────────────────────────────────────
-
-  /// Cost basis of one portfolio, normalised to THB.
-  ///
-  /// `position.totalCost` is in each asset's NATIVE currency, so summing it raw
-  /// across a mixed-currency portfolio would count USD as THB — the same bug
-  /// fixed in Liabilities/Transactions (see docs/phase5-handoff.md §2).
-  static double _nodeCostThb(PortfolioNode node, double fx) =>
-      node.assets.fold<double>(
-        0,
-        (sum, an) =>
-            sum + CurrencyConverter.toThb(an.position.totalCost, an.asset.currency, fx),
-      );
 
   static Widget _portfolioList({
     required List<PortfolioNode> nodes,
@@ -86,7 +73,7 @@ class OverviewScreen extends ConsumerWidget {
           title: node.portfolio.name,
           subtitle: symbols,
           trailing: Text(
-            money.money(_nodeCostThb(node, fx)),
+            money.money(nodeCostThb(node, fx)),
             style: const TextStyle(
               fontSize: 14,
               fontWeight: FontWeight.w700,

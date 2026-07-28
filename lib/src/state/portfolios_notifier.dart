@@ -2,6 +2,7 @@ import 'package:freezed_annotation/freezed_annotation.dart';
 import 'package:riverpod_annotation/riverpod_annotation.dart';
 
 import '../db/database.dart';
+import '../domain/currency_converter.dart';
 import '../domain/position_calculator.dart';
 import '../repos/portfolio_repo.dart';
 import '../repos/asset_repo.dart';
@@ -15,6 +16,30 @@ abstract class AssetNode with _$AssetNode {
   const factory AssetNode({required Asset asset, required PositionSummary position}) =
       _AssetNode;
 }
+
+// ── native → THB helpers ────────────────────────────────────────────────────
+//
+// `PositionSummary.totalCost` / `.realizedPnl` are denominated in the asset's
+// NATIVE currency (locked at creation, CONTRACTS §7). The rule, per
+// docs/phase5-handoff.md §2:
+//
+//   * AGGREGATES over possibly-mixed assets — portfolio/screen totals, and the
+//     proportions behind allocation bars — MUST convert first, or a USD holding
+//     is counted as THB. Use these helpers.
+//   * SINGLE-ASSET rows keep their own amount and their own glyph. Do not
+//     convert those.
+
+double assetCostThb(AssetNode an, double fx) =>
+    CurrencyConverter.toThb(an.position.totalCost, an.asset.currency, fx);
+
+double assetRealizedPnlThb(AssetNode an, double fx) =>
+    CurrencyConverter.toThb(an.position.realizedPnl, an.asset.currency, fx);
+
+double assetsCostThb(Iterable<AssetNode> assets, double fx) =>
+    assets.fold<double>(0, (sum, an) => sum + assetCostThb(an, fx));
+
+double nodeCostThb(PortfolioNode node, double fx) =>
+    assetsCostThb(node.assets, fx);
 
 @freezed
 abstract class PortfolioNode with _$PortfolioNode {

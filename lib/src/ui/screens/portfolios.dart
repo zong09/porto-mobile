@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:porto_mobile/src/domain/formatters.dart';
+import 'package:porto_mobile/src/state/display_money.dart';
 import 'package:porto_mobile/src/state/portfolios_notifier.dart';
 import 'package:porto_mobile/src/ui/theme/colors.dart';
 import 'package:porto_mobile/src/ui/widgets/area_chart.dart';
@@ -7,6 +9,10 @@ import 'package:porto_mobile/src/ui/widgets/cards.dart';
 import 'package:porto_mobile/src/ui/widgets/donut_chart.dart';
 import 'package:porto_mobile/src/ui/widgets/portfolio_sheet.dart';
 import 'package:porto_mobile/src/ui/widgets/sheet_shell.dart';
+
+/// Glyph for an asset's OWN currency. Single-asset rows render their native
+/// amount, so they must not borrow the display-currency symbol.
+String _nativeSymbolOf(String currency) => currency == 'USD' ? r'$' : '฿';
 
 /// Maps an asset type wire string to its palette index (crypto=0 … deposit=4).
 int _assetTypeIndex(String type) {
@@ -26,11 +32,12 @@ class PortfoliosScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final state = ref.watch(portfoliosProvider);
     final nodes = state.value?.nodes ?? const <PortfolioNode>[];
+    final money = ref.watch(displayMoneyProvider).value ?? DisplayMoney.thb;
 
-    // Total cost basis across all portfolios
-    final totalCost = nodes.fold<double>(
+    // Total cost basis across all portfolios, normalised to THB first.
+    final totalCostThb = nodes.fold<double>(
       0,
-      (sum, n) => sum + n.assets.fold<double>(0, (a, an) => a + an.position.totalCost),
+      (sum, n) => sum + nodeCostThb(n, money.fx),
     );
 
     return Scaffold(
@@ -102,7 +109,7 @@ class PortfoliosScreen extends ConsumerWidget {
                   const SizedBox(height: 4),
                   // Total value
                   Text(
-                    totalCost.toStringAsFixed(2),
+                    money.money(totalCostThb),
                     style: const TextStyle(
                       fontSize: 38,
                       fontWeight: FontWeight.w700,
@@ -112,7 +119,7 @@ class PortfoliosScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 14),
                   // Allocation bar
-                  _AllocationBar(nodes: nodes),
+                  _AllocationBar(nodes: nodes, fx: money.fx),
                 ],
               ),
             ),
@@ -127,7 +134,8 @@ class PortfoliosScreen extends ConsumerWidget {
                 child: SingleChildScrollView(
                   child: Column(
                     children: [
-                      ...nodes.map((node) => _PortfolioCard(node: node)),
+                      ...nodes.map(
+                          (node) => _PortfolioCard(node: node, money: money)),
                       // Dashed create-new card
                       _CreateNewCard(
                         onTap: () => _showCreatePortfolioSheet(context),
@@ -156,22 +164,23 @@ class PortfoliosScreen extends ConsumerWidget {
 // PortfolioDetailScreen  —  detail sub-screen (takes a PortfolioNode)
 // -----------------------------------------------------------------------------
 
-class PortfolioDetailScreen extends StatelessWidget {
+class PortfolioDetailScreen extends ConsumerWidget {
   final PortfolioNode node;
 
   const PortfolioDetailScreen({super.key, required this.node});
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final portfolio = node.portfolio;
     final assets = node.assets;
+    final money = ref.watch(displayMoneyProvider).value ?? DisplayMoney.thb;
 
-    // Portfolio value = sum of asset totalCosts
-    final value = assets.fold<double>(0, (sum, an) => sum + an.position.totalCost);
-
-    // Realized P&L
-    final realizedPnl =
-        assets.fold<double>(0, (sum, an) => sum + an.position.realizedPnl);
+    // Aggregates across possibly-mixed currencies — convert before summing.
+    final valueThb = assetsCostThb(assets, money.fx);
+    final realizedPnlThb = assets.fold<double>(
+      0,
+      (sum, an) => sum + assetRealizedPnlThb(an, money.fx),
+    );
 
     return Scaffold(
       body: Container(
@@ -251,7 +260,7 @@ class PortfolioDetailScreen extends StatelessWidget {
                   const SizedBox(height: 12),
                   // Value
                   Text(
-                    value.toStringAsFixed(2),
+                    money.money(valueThb),
                     style: const TextStyle(
                       fontSize: 40,
                       fontWeight: FontWeight.w700,
@@ -261,7 +270,7 @@ class PortfolioDetailScreen extends StatelessWidget {
                   ),
                   const SizedBox(height: 16),
                   // Allocation bar over assets
-                  _AssetAllocationBar(assets: assets),
+                  _AssetAllocationBar(assets: assets, fx: money.fx),
                 ],
               ),
             ),
@@ -315,7 +324,7 @@ class PortfolioDetailScreen extends StatelessWidget {
                           children: [
                             Expanded(
                               child: Text(
-                                'Realized P/L ปีนี้ ${realizedPnl >= 0 ? '+' : ''}\$${realizedPnl.toStringAsFixed(2)}',
+                                'Realized P/L ปีนี้ ${realizedPnlThb >= 0 ? '+' : ''}${money.symbol}${money.money(realizedPnlThb)}',
                                 style: const TextStyle(
                                   fontSize: 12.5,
                                   color: Color(0xFF6B5D49),
@@ -353,16 +362,17 @@ class PortfolioDetailScreen extends StatelessWidget {
 class _AllocationBar extends StatelessWidget {
   final List<PortfolioNode> nodes;
 
-  const _AllocationBar({required this.nodes});
+  /// THB per USD — segment widths are proportions of a mixed-currency total,
+  /// so they are wrong unless every node is normalised first.
+  final double fx;
+
+  const _AllocationBar({required this.nodes, required this.fx});
 
   @override
   Widget build(BuildContext context) {
     if (nodes.isEmpty) return const SizedBox.shrink();
 
-    final total = nodes.fold<double>(
-      0,
-      (sum, n) => sum + n.assets.fold<double>(0, (a, an) => a + an.position.totalCost),
-    );
+    final total = nodes.fold<double>(0, (sum, n) => sum + nodeCostThb(n, fx));
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -376,9 +386,7 @@ class _AllocationBar extends StatelessWidget {
           ),
           child: Row(
             children: nodes.map((node) {
-              final nodeCost =
-                  node.assets.fold<double>(0, (a, an) => a + an.position.totalCost);
-              final pct = total > 0 ? nodeCost / total : 0;
+              final pct = total > 0 ? nodeCostThb(node, fx) / total : 0;
               return Expanded(
                 flex: (pct * 100).toInt().clamp(0, 100),
                 child: Container(
@@ -394,9 +402,7 @@ class _AllocationBar extends StatelessWidget {
           spacing: 14,
           runSpacing: 4,
           children: nodes.map((node) {
-            final nodeCost =
-                node.assets.fold<double>(0, (a, an) => a + an.position.totalCost);
-            final pct = total > 0 ? nodeCost / total : 0;
+            final pct = total > 0 ? nodeCostThb(node, fx) / total : 0;
             return Text(
               '${node.portfolio.name} ${(pct * 100).toStringAsFixed(0)}%',
               style: const TextStyle(
@@ -415,16 +421,16 @@ class _AllocationBar extends StatelessWidget {
 class _AssetAllocationBar extends StatelessWidget {
   final List<AssetNode> assets;
 
-  const _AssetAllocationBar({required this.assets});
+  /// THB per USD — see [_AllocationBar.fx].
+  final double fx;
+
+  const _AssetAllocationBar({required this.assets, required this.fx});
 
   @override
   Widget build(BuildContext context) {
     if (assets.isEmpty) return const SizedBox.shrink();
 
-    final total = assets.fold<double>(
-      0,
-      (sum, an) => sum + an.position.totalCost,
-    );
+    final total = assetsCostThb(assets, fx);
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -437,7 +443,7 @@ class _AssetAllocationBar extends StatelessWidget {
           ),
           child: Row(
             children: assets.map((an) {
-              final pct = total > 0 ? an.position.totalCost / total : 0;
+              final pct = total > 0 ? assetCostThb(an, fx) / total : 0;
               return Expanded(
                 flex: (pct * 100).toInt().clamp(0, 100),
                 child: Container(
@@ -452,7 +458,7 @@ class _AssetAllocationBar extends StatelessWidget {
           spacing: 14,
           runSpacing: 4,
           children: assets.map((an) {
-            final pct = total > 0 ? an.position.totalCost / total : 0;
+            final pct = total > 0 ? assetCostThb(an, fx) / total : 0;
             return Text(
               '${an.asset.symbol} ${(pct * 100).toStringAsFixed(0)}%',
               style: const TextStyle(
@@ -470,20 +476,14 @@ class _AssetAllocationBar extends StatelessWidget {
 /// One portfolio card in the list.
 class _PortfolioCard extends StatelessWidget {
   final PortfolioNode node;
+  final DisplayMoney money;
 
-  const _PortfolioCard({required this.node});
+  const _PortfolioCard({required this.node, required this.money});
 
   @override
   Widget build(BuildContext context) {
     final portfolio = node.portfolio;
     final assets = node.assets;
-    final nodeCost =
-        assets.fold<double>(0, (sum, an) => sum + an.position.totalCost);
-
-    // Percentage chip
-    // (computed relative to total — caller can pass total, or we use 0)
-    // We'll compute it inline; the exact total isn't available here so we
-    // show 0% — the real app would compute from the parent's total.
 
     return Padding(
       padding: const EdgeInsets.only(bottom: 11),
@@ -515,7 +515,7 @@ class _PortfolioCard extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Text(
-                nodeCost.toStringAsFixed(2),
+                money.money(nodeCostThb(node, money.fx)),
                 style: const TextStyle(
                   fontSize: 15,
                   fontWeight: FontWeight.w700,
@@ -586,6 +586,7 @@ class _FeaturedAssetCard extends StatelessWidget {
     final asset = an.asset;
     final pos = an.position;
     final typeIndex = _assetTypeIndex(asset.type);
+    final nativeSymbol = _nativeSymbolOf(asset.currency);
 
     return PlainCard(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
@@ -626,7 +627,8 @@ class _FeaturedAssetCard extends StatelessWidget {
                       ),
                     ),
                     Text(
-                      'qty ${pos.quantity.toStringAsFixed(2)} @ ${pos.avgCost.toStringAsFixed(2)}',
+                      // Single asset — its own currency, not the display one.
+                      'qty ${Formatters.money(pos.quantity)} @ $nativeSymbol${Formatters.money(pos.avgCost)}',
                       style: const TextStyle(
                         fontSize: 11,
                         color: AppColors.muted2,
@@ -639,7 +641,7 @@ class _FeaturedAssetCard extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.end,
                 children: [
                   Text(
-                    pos.totalCost.toStringAsFixed(2),
+                    '$nativeSymbol${Formatters.money(pos.totalCost)}',
                     style: const TextStyle(
                       fontSize: 14,
                       fontWeight: FontWeight.w700,
@@ -738,6 +740,7 @@ class _AssetRow extends StatelessWidget {
     final asset = an.asset;
     final pos = an.position;
     final typeIndex = _assetTypeIndex(asset.type);
+    final nativeSymbol = _nativeSymbolOf(asset.currency);
 
     return ListRowTile(
       leading: Container(
@@ -759,9 +762,9 @@ class _AssetRow extends StatelessWidget {
         ),
       ),
       title: asset.name,
-      subtitle: 'qty ${pos.quantity.toStringAsFixed(2)}',
+      subtitle: 'qty ${Formatters.money(pos.quantity)}',
       trailing: Text(
-        pos.totalCost.toStringAsFixed(2),
+        '$nativeSymbol${Formatters.money(pos.totalCost)}',
         style: const TextStyle(
           fontSize: 14,
           fontWeight: FontWeight.w700,
