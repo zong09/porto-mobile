@@ -82,14 +82,37 @@
 >    sensibly (`SYMBOL.BK` / `SYMBOL`), so its absence breaks nothing.
 >    `price_repository_test.dart:65` already proved `fund → manualPrice`; the
 >    missing half was only ever the UI path, which is what the new tests cover.
-> 2. **The Realized P/L banner is inert.** `portfolios.dart:372` is a bare
->    `Container` carrying a `›` chevron, no gesture handler anywhere above it.
->    `design-portfolios.md:49` says it opens a filtered Transactions view.
->    Exactly the `แก้ไข`-chip shape. **Needs a product decision before it can be
->    built:** the design does not say *which* filter, and `TransactionsScreen`
->    keeps `_filter` as private state (`transactions.dart:25`) with no way to
->    seed it — so this needs the `onOpenLiabilities`/`ดูทั้งหมด` treatment, a
->    callback up to `AppShell`, plus an initial-filter parameter.
+> 2. **The Realized P/L banner was inert** — ✅ **FIXED**, it now opens
+>    Transactions filtered to sells. `portfolios.dart:372` was a bare
+>    `Container` carrying a `›` chevron with no gesture handler anywhere above
+>    it, while `design-portfolios.md:49` says it opens a filtered Transactions
+>    view. Exactly the `แก้ไข`-chip shape.
+>
+>    The design does not say *which* filter; **sells** was the call — realized
+>    P/L is what the sells produced, and `'sell'` is already a filter key.
+>
+>    **The mechanism is the interesting part.** The banner sits in a route
+>    pushed *on top of* the Portfolios tab, so it can reach neither
+>    `_TransactionsScreenState._filter` nor `_AppShellState._currentIndex`.
+>    Rather than thread a callback down four widgets, the filter moved into
+>    `txFilterProvider` (`lib/src/state/ui_state.dart`) and `AppShell` listens,
+>    bringing tab 2 forward when it changes.
+>
+>    Deliberately **plain state, not a one-shot "navigate" request**: writing a
+>    value it already holds is a no-op and correct, so there is nothing to
+>    consume and no ordering to get wrong between the two listeners. The
+>    obvious alternatives both have a bug — a widget `initialFilter` parameter
+>    goes stale when the same filter is requested twice, and a
+>    request-then-clear provider depends on listener ordering.
+>    `AppShell`'s `_currentIndex` and `initialIndex` are untouched; the listener
+>    guards on `!= 2` so tapping a pill while already on the tab does not
+>    trigger a shell rebuild. `_activePill` is gone — it duplicated `_filter`.
+>
+>    Both halves are covered: `portfolios_screen_test.dart` drives the banner
+>    (filter becomes `sell`, detail route pops) and `app_shell_tab_test.dart`
+>    asserts the `IndexedStack` index moves to 2. That second one asserts on the
+>    index, not on `find.byType(TransactionsScreen)` — the stack mounts all four
+>    children on every tab, so a find always hits.
 >
 > Checked and **already correctly wired** (do not re-find): the Liabilities stat
 > card (`overview.dart:201`, `GestureDetector` → `onOpenLiabilities`), the

@@ -10,6 +10,7 @@ import 'package:porto_mobile/src/domain/position_calculator.dart';
 import 'package:porto_mobile/src/domain/formatters.dart';
 import 'package:porto_mobile/src/state/display_money.dart';
 import 'package:porto_mobile/src/state/portfolios_notifier.dart';
+import 'package:porto_mobile/src/state/ui_state.dart';
 import 'package:porto_mobile/src/ui/screens/portfolios.dart';
 import 'package:porto_mobile/src/ui/widgets/area_chart.dart';
 import 'package:porto_mobile/src/ui/widgets/asset_chart_sheet.dart';
@@ -137,6 +138,41 @@ void main() {
     await tester.tap(find.text('฿ THB'));
     await tester.pump();
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('the Realized P/L banner opens the sell-filtered list',
+      (tester) async {
+    // The banner carries a › and design-portfolios.md:49 says it opens a
+    // filtered Transactions view; it used to be a bare Container with no
+    // handler at all. It sits in a route pushed on top of the Portfolios tab,
+    // so it cannot reach the shell's State — it writes the filter and pops,
+    // and AppShell brings the tab forward.
+    tester.view.physicalSize = const Size(2400, 3600); // 800x1200 logical
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(_app(PortfoliosState(nodes: [
+      _node(
+        portfolio: _pf(id: 'p1', name: 'พอร์ต A'),
+        assets: [_an(asset: _asset(symbol: 'ETH', name: 'Ethereum'))],
+      ),
+    ])));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('พอร์ต A'));
+    await tester.pumpAndSettle();
+    expect(find.byType(PortfolioDetailScreen), findsOneWidget);
+
+    // Grab the container before the pop takes the element away.
+    final container = ProviderScope.containerOf(
+        tester.element(find.byType(PortfolioDetailScreen)));
+    expect(container.read(txFilterProvider), 'all');
+
+    await tester.tap(find.textContaining('Realized P/L'));
+    await tester.pumpAndSettle();
+
+    expect(container.read(txFilterProvider), 'sell');
+    expect(find.byType(PortfolioDetailScreen), findsNothing,
+        reason: 'the banner must return to the shell, not stack a route');
   });
 
   testWidgets('a fund carries its manual price into addAsset', (tester) async {

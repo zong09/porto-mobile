@@ -4,6 +4,7 @@ import 'package:porto_mobile/src/db/database.dart';
 import 'package:porto_mobile/src/domain/formatters.dart';
 import 'package:porto_mobile/src/state/display_money.dart';
 import 'package:porto_mobile/src/state/portfolios_notifier.dart';
+import 'package:porto_mobile/src/state/ui_state.dart';
 import 'package:porto_mobile/src/ui/theme/colors.dart';
 import 'package:porto_mobile/src/ui/widgets/area_chart.dart';
 import 'package:porto_mobile/src/ui/widgets/asset_chart_sheet.dart';
@@ -50,11 +51,7 @@ class PortfoliosScreen extends ConsumerWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              AppColors.brand,
-              AppColors.brandD,
-              AppColors.brandDd,
-            ],
+            colors: [AppColors.brand, AppColors.brandD, AppColors.brandDd],
           ),
         ),
         child: Column(
@@ -105,10 +102,7 @@ class PortfoliosScreen extends ConsumerWidget {
                   // Label
                   const Text(
                     'มูลค่าการลงทุนรวม',
-                    style: TextStyle(
-                      fontSize: 13,
-                      color: Color(0xBFFAF5EC),
-                    ),
+                    style: TextStyle(fontSize: 13, color: Color(0xBFFAF5EC)),
                   ),
                   const SizedBox(height: 4),
                   // Total value
@@ -139,7 +133,8 @@ class PortfoliosScreen extends ConsumerWidget {
                   child: Column(
                     children: [
                       ...nodes.map(
-                          (node) => _PortfolioCard(node: node, money: money)),
+                        (node) => _PortfolioCard(node: node, money: money),
+                      ),
                       // Dashed create-new card
                       _CreateNewCard(
                         label: '+ สร้างพอร์ตใหม่',
@@ -203,11 +198,7 @@ class PortfolioDetailScreen extends ConsumerWidget {
           gradient: LinearGradient(
             begin: Alignment.topLeft,
             end: Alignment.bottomRight,
-            colors: [
-              AppColors.brand,
-              AppColors.brandD,
-              AppColors.brandDd,
-            ],
+            colors: [AppColors.brand, AppColors.brandD, AppColors.brandDd],
           ),
         ),
         child: Column(
@@ -325,19 +316,25 @@ class PortfolioDetailScreen extends ConsumerWidget {
                       if (assets.isNotEmpty)
                         _FeaturedAssetCard(
                           assetNode: assets.first,
-                          onEdit: () => _showAssetSheet(context,
-                              portfolioId: portfolio.id,
-                              existing: assets.first.asset),
+                          onEdit: () => _showAssetSheet(
+                            context,
+                            portfolioId: portfolio.id,
+                            existing: assets.first.asset,
+                          ),
                           onOpenChart: () =>
                               showAssetChartSheet(context, assets.first.asset),
-                          onBuy: () => _showTransactionSheet(context,
-                              side: 'buy',
-                              assets: assets,
-                              initial: assets.first),
-                          onSell: () => _showTransactionSheet(context,
-                              side: 'sell',
-                              assets: assets,
-                              initial: assets.first),
+                          onBuy: () => _showTransactionSheet(
+                            context,
+                            side: 'buy',
+                            assets: assets,
+                            initial: assets.first,
+                          ),
+                          onSell: () => _showTransactionSheet(
+                            context,
+                            side: 'sell',
+                            assets: assets,
+                            initial: assets.first,
+                          ),
                         ),
 
                       // Remaining assets
@@ -346,12 +343,16 @@ class PortfolioDetailScreen extends ConsumerWidget {
                         DividedCard(
                           rows: assets
                               .skip(1)
-                              .map((an) => _AssetRow(
-                                    an: an,
-                                    onTap: () => _showAssetSheet(context,
-                                        portfolioId: portfolio.id,
-                                        existing: an.asset),
-                                  ))
+                              .map(
+                                (an) => _AssetRow(
+                                  an: an,
+                                  onTap: () => _showAssetSheet(
+                                    context,
+                                    portfolioId: portfolio.id,
+                                    existing: an.asset,
+                                  ),
+                                ),
+                              )
                               .toList(),
                         ),
                       ],
@@ -368,36 +369,47 @@ class PortfolioDetailScreen extends ConsumerWidget {
 
                       const SizedBox(height: 12),
 
-                      // Realized P/L banner
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 16,
-                          vertical: 13,
-                        ),
-                        decoration: BoxDecoration(
-                          color: const Color(0xFFFFE9DB),
-                          borderRadius: BorderRadius.circular(18),
-                        ),
-                        child: Row(
-                          children: [
-                            Expanded(
-                              child: Text(
-                                'Realized P/L ปีนี้ ${realizedPnlThb >= 0 ? '+' : ''}${money.symbol}${money.money(realizedPnlThb)}',
-                                style: const TextStyle(
-                                  fontSize: 12.5,
-                                  color: Color(0xFF6B5D49),
+                      // Realized P/L banner. The trailing › promises somewhere
+                      // to go (design-portfolios.md:49 — Transactions,
+                      // filtered), and realized P/L is what the sells produced,
+                      // so that is the filter. Popping first lands the user on
+                      // the shell, which brings the Transactions tab forward.
+                      GestureDetector(
+                        behavior: HitTestBehavior.opaque,
+                        onTap: () {
+                          ref.read(txFilterProvider.notifier).choose('sell');
+                          Navigator.of(context).pop();
+                        },
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 16,
+                            vertical: 13,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0xFFFFE9DB),
+                            borderRadius: BorderRadius.circular(18),
+                          ),
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  'Realized P/L ปีนี้ ${realizedPnlThb >= 0 ? '+' : ''}${money.symbol}${money.money(realizedPnlThb)}',
+                                  style: const TextStyle(
+                                    fontSize: 12.5,
+                                    color: Color(0xFF6B5D49),
+                                  ),
                                 ),
                               ),
-                            ),
-                            const Text(
-                              '\u{203A}',
-                              style: TextStyle(
-                                fontSize: 14,
-                                color: Color(0xFFC24A1E),
-                                fontWeight: FontWeight.w700,
+                              const Text(
+                                '\u{203A}',
+                                style: TextStyle(
+                                  fontSize: 14,
+                                  color: Color(0xFFC24A1E),
+                                  fontWeight: FontWeight.w700,
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ),
                     ],
@@ -421,8 +433,7 @@ class PortfolioDetailScreen extends ConsumerWidget {
     showPortoSheet(
       context,
       title: existing == null ? 'เพิ่มสินทรัพย์' : 'แก้ไขสินทรัพย์',
-      builder: (_) =>
-          AssetSheet(portfolioId: portfolioId, existing: existing),
+      builder: (_) => AssetSheet(portfolioId: portfolioId, existing: existing),
     );
   }
 
@@ -502,10 +513,7 @@ class _AllocationBar extends StatelessWidget {
             final pct = total > 0 ? nodeCostThb(node, fx) / total : 0;
             return Text(
               '${node.portfolio.name} ${(pct * 100).toStringAsFixed(0)}%',
-              style: const TextStyle(
-                fontSize: 11,
-                color: Color(0xD9FAF5EC),
-              ),
+              style: const TextStyle(fontSize: 11, color: Color(0xD9FAF5EC)),
             );
           }).toList(),
         ),
@@ -558,10 +566,7 @@ class _AssetAllocationBar extends StatelessWidget {
             final pct = total > 0 ? assetCostThb(an, fx) / total : 0;
             return Text(
               '${an.asset.symbol} ${(pct * 100).toStringAsFixed(0)}%',
-              style: const TextStyle(
-                fontSize: 11,
-                color: Color(0xD9FAF5EC),
-              ),
+              style: const TextStyle(fontSize: 11, color: Color(0xD9FAF5EC)),
             );
           }).toList(),
         ),
@@ -597,11 +602,13 @@ class _PortfolioCard extends StatelessWidget {
               assets.isEmpty
                   ? [DonutSlice(1, AppColors.palette[portfolio.color])]
                   : assets
-                      .map((an) => DonutSlice(
+                        .map(
+                          (an) => DonutSlice(
                             an.position.totalCost,
                             AppColors.palette[_assetTypeIndex(an.asset.type)],
-                          ))
-                      .toList(),
+                          ),
+                        )
+                        .toList(),
               strokeFraction: 0.34,
             ),
           ),
@@ -713,63 +720,66 @@ class _FeaturedAssetCard extends StatelessWidget {
             onTap: onEdit,
             behavior: HitTestBehavior.opaque,
             child: Row(
-            children: [
-              Container(
-                width: 38,
-                height: 38,
-                decoration: BoxDecoration(
-                  color: AppColors.palette[typeIndex].withValues(alpha: 0.2),
-                  borderRadius: BorderRadius.circular(12),
-                ),
-                child: Center(
-                  child: Text(
-                    asset.symbol.toUpperCase().substring(0, asset.symbol.length > 3 ? 3 : asset.symbol.length),
-                    style: TextStyle(
-                      fontSize: 10,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.palette[typeIndex],
+              children: [
+                Container(
+                  width: 38,
+                  height: 38,
+                  decoration: BoxDecoration(
+                    color: AppColors.palette[typeIndex].withValues(alpha: 0.2),
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Center(
+                    child: Text(
+                      asset.symbol.toUpperCase().substring(
+                        0,
+                        asset.symbol.length > 3 ? 3 : asset.symbol.length,
+                      ),
+                      style: TextStyle(
+                        fontSize: 10,
+                        fontWeight: FontWeight.w700,
+                        color: AppColors.palette[typeIndex],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        asset.name,
+                        style: const TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      Text(
+                        // Single asset — its own currency, not the display one.
+                        'qty ${Formatters.money(pos.quantity)} @ $nativeSymbol${Formatters.money(pos.avgCost)}',
+                        style: const TextStyle(
+                          fontSize: 11,
+                          color: AppColors.muted2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.end,
                   children: [
                     Text(
-                      asset.name,
+                      '$nativeSymbol${Formatters.money(pos.totalCost)}',
                       style: const TextStyle(
                         fontSize: 14,
                         fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                    Text(
-                      // Single asset — its own currency, not the display one.
-                      'qty ${Formatters.money(pos.quantity)} @ $nativeSymbol${Formatters.money(pos.avgCost)}',
-                      style: const TextStyle(
-                        fontSize: 11,
-                        color: AppColors.muted2,
+                        fontFeatures: [FontFeature.tabularFigures()],
                       ),
                     ),
                   ],
                 ),
-              ),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.end,
-                children: [
-                  Text(
-                    '$nativeSymbol${Formatters.money(pos.totalCost)}',
-                    style: const TextStyle(
-                      fontSize: 14,
-                      fontWeight: FontWeight.w700,
-                      fontFeatures: [FontFeature.tabularFigures()],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
+              ],
+            ),
           ),
           const SizedBox(height: 8),
           // Sparkline — tap opens the price-history chart sheet
@@ -879,7 +889,10 @@ class _AssetRow extends StatelessWidget {
         ),
         child: Center(
           child: Text(
-            asset.symbol.toUpperCase().substring(0, asset.symbol.length > 3 ? 3 : asset.symbol.length),
+            asset.symbol.toUpperCase().substring(
+              0,
+              asset.symbol.length > 3 ? 3 : asset.symbol.length,
+            ),
             style: TextStyle(
               fontSize: 10,
               fontWeight: FontWeight.w700,

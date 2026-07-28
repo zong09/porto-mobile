@@ -6,13 +6,14 @@ import '../../domain/formatters.dart';
 import '../../state/display_money.dart';
 import '../../state/portfolios_notifier.dart';
 import '../../state/transactions_notifier.dart';
+import '../../state/ui_state.dart';
 import '../theme/colors.dart';
 import '../widgets/cards.dart';
 import '../widgets/transaction_sheet.dart';
 
 /// Transactions screen — gradient hero with date-grouped tx list + filter pills.
 ///
-/// Watches [transactionsProvider]; filter state is local (StatefulWidget).
+/// Watches [transactionsProvider]; the filter pill lives in [txFilterProvider].
 class TransactionsScreen extends ConsumerStatefulWidget {
   const TransactionsScreen({super.key});
 
@@ -22,12 +23,13 @@ class TransactionsScreen extends ConsumerStatefulWidget {
 
 class _TransactionsScreenState
     extends ConsumerState<TransactionsScreen> {
-  String _filter = 'all'; // all | buy | sell | deposit-withdraw
+  /// all | buy | sell | deposit-withdraw. Held in [txFilterProvider] rather
+  /// than in this State — the Realized P/L banner in Portfolio detail is a
+  /// second writer. The active pill is derived from it, not tracked separately.
+  String get _filter => ref.watch(txFilterProvider);
 
   static const _pillLabels = ['ทั้งหมด', 'ซื้อ', 'ขาย', 'ฝาก/ถอน'];
   static const _filterKeys = ['all', 'buy', 'sell', 'deposit-withdraw'];
-
-  int _activePill = 0;
 
   // ── hero ─────────────────────────────────────────────────────────────
 
@@ -234,7 +236,7 @@ class _TransactionsScreenState
                 _hero(
                     buySellTotals: totalsThb.entries.toList(), money: money),
 
-                // Filter pills (with local state)
+                // Filter pills
                 Padding(
                   padding:
                       const EdgeInsets.only(left: 22, right: 22, bottom: 12),
@@ -243,11 +245,11 @@ class _TransactionsScreenState
                     children: List.generate(
                       _pillLabels.length,
                       (i) => GestureDetector(
-                        onTap: () => setState(() {
-                          _activePill = i;
-                          _filter = _filterKeys[i];
-                        }),
-                        child: _filterPill(_pillLabels[i], _activePill == i),
+                        onTap: () => ref
+                            .read(txFilterProvider.notifier)
+                            .choose(_filterKeys[i]),
+                        child: _filterPill(
+                            _pillLabels[i], _filter == _filterKeys[i]),
                       ),
                     ),
                   ),

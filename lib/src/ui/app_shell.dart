@@ -10,6 +10,7 @@ import 'package:share_plus/share_plus.dart';
 import '../db/database.dart';
 import '../state/portfolios_notifier.dart';
 import '../state/settings_notifier.dart';
+import '../state/ui_state.dart';
 import 'screens/overview.dart';
 import 'screens/portfolios.dart';
 import 'screens/transactions.dart';
@@ -180,6 +181,14 @@ class _AppShellState extends ConsumerState<AppShell> {
 
   @override
   Widget build(BuildContext context) {
+    // Something asked for a filtered transaction list — bring that tab
+    // forward. The only writers are the pills on the Transactions screen
+    // (already here, so the guard makes it a no-op) and the Realized P/L
+    // banner in Portfolio detail, which cannot reach this State directly.
+    ref.listen(txFilterProvider, (_, _) {
+      if (_currentIndex != 2) setState(() => _currentIndex = 2);
+    });
+
     return Scaffold(
       body: Stack(
         children: [
