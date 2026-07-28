@@ -14,6 +14,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:porto_mobile/src/db/database.dart';
 import 'package:porto_mobile/src/state/overview_notifier.dart';
 import 'package:porto_mobile/src/state/providers.dart';
+import 'package:porto_mobile/src/state/transactions_notifier.dart';
 import 'package:porto_mobile/src/ui/screens/portfolios.dart';
 
 void main() {
@@ -32,7 +33,18 @@ void main() {
         // displayMoneyProvider awaits this — pin it so no test hits the network.
         fxProvider.overrideWithValue(() async => 35.0),
       ],
-      child: const MaterialApp(home: PortfoliosScreen()),
+      child: MaterialApp(
+        // Keeps transactionsProvider alive, which the real app does implicitly:
+        // AppShell is an IndexedStack, so TransactionsScreen is mounted (and
+        // therefore watching) on every tab. Without a listener the provider is
+        // autoDispose'd the instant TransactionSheet's `ref.read` returns, and
+        // step 5's write is dropped before it reaches the repo. Pumping
+        // PortfoliosScreen alone is the unrealistic part, not the app.
+        home: Consumer(builder: (_, ref, _) {
+          ref.watch(transactionsProvider);
+          return const PortfoliosScreen();
+        }),
+      ),
     ));
     await tester.pumpAndSettle();
 
@@ -69,5 +81,19 @@ void main() {
         reason: 'saving must not close the detail screen');
     expect(find.text('Bitcoin'), findsOneWidget,
         reason: 'detail must re-read the live node, not its push-time snapshot');
+
+    // ── 5. Record a buy on it — the dead end task 1 opens up ─────────────
+    await tester.tap(find.text('ซื้อเพิ่ม'));
+    await tester.pumpAndSettle();
+
+    await tester.enterText(find.byType(TextField).at(0), '2'); // qty
+    await tester.enterText(find.byType(TextField).at(1), '100'); // price
+    await tester.tap(find.text('บันทึกรายการ'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(PortfolioDetailScreen), findsOneWidget);
+    expect(find.textContaining('qty 2.00'), findsOneWidget,
+        reason: 'a saved tx must invalidate portfoliosProvider, or the screen '
+            'the user is looking at shows the buy as having changed nothing');
   });
 }

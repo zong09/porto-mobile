@@ -1,15 +1,20 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../../db/database.dart';
 import '../../state/portfolios_notifier.dart';
 import '../theme/colors.dart';
 
-/// Create a portfolio (design-portfolios.md §A.1 / §B "สร้างพอร์ตใหม่").
+/// Create a portfolio (design-portfolios.md §A.1 / §B "สร้างพอร์ตใหม่"), or
+/// edit one when [existing] is supplied — the fields are identical either way,
+/// so the แก้ไข chip in Portfolio detail reuses this rather than duplicating it.
 ///
 /// Builds the fields only — present it via `showPortoSheet`, which supplies the
 /// [SheetShell] chrome (same convention as [AssetSheet] / [LiabilityCreateSheet]).
 class PortfolioCreateSheet extends ConsumerStatefulWidget {
-  const PortfolioCreateSheet({super.key});
+  final Portfolio? existing;
+
+  const PortfolioCreateSheet({super.key, this.existing});
 
   @override
   ConsumerState<PortfolioCreateSheet> createState() =>
@@ -20,6 +25,16 @@ class _PortfolioCreateSheetState extends ConsumerState<PortfolioCreateSheet> {
   final _nameCtrl = TextEditingController();
   int _color = 0;
   String? _error;
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.existing;
+    if (e != null) {
+      _nameCtrl.text = e.name;
+      _color = e.color;
+    }
+  }
 
   @override
   void dispose() {
@@ -35,10 +50,22 @@ class _PortfolioCreateSheetState extends ConsumerState<PortfolioCreateSheet> {
       setState(() => _error = 'กรุณากรอกชื่อพอร์ต');
       return;
     }
-    ref
-        .read(portfoliosProvider.notifier)
-        .addPortfolio(name: name, color: _color);
+    final notifier = ref.read(portfoliosProvider.notifier);
+    final e = widget.existing;
+    if (e != null) {
+      _applyEdit(notifier, e.id, name);
+    } else {
+      notifier.addPortfolio(name: name, color: _color);
+    }
     Navigator.of(context).pop();
+  }
+
+  /// Rename, THEN recolor. Both read-modify-write the same row, so running them
+  /// concurrently lets the second read a pre-rename copy and drop the new name.
+  Future<void> _applyEdit(
+      PortfoliosNotifier notifier, String id, String name) async {
+    await notifier.renamePortfolio(id, name);
+    await notifier.recolorPortfolio(id, _color);
   }
 
   @override

@@ -10,6 +10,7 @@ import 'package:porto_mobile/src/ui/widgets/cards.dart';
 import 'package:porto_mobile/src/ui/widgets/donut_chart.dart';
 import 'package:porto_mobile/src/ui/widgets/portfolio_sheet.dart';
 import 'package:porto_mobile/src/ui/widgets/sheet_shell.dart';
+import 'package:porto_mobile/src/ui/widgets/transaction_sheet.dart';
 
 /// Glyph for an asset's OWN currency. Single-asset rows render their native
 /// amount, so they must not borrow the display-currency symbol.
@@ -249,21 +250,30 @@ class PortfolioDetailScreen extends ConsumerWidget {
                         ),
                       ),
                       const Spacer(),
-                      Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 3,
+                      InkWell(
+                        onTap: () => showPortoSheet(
+                          context,
+                          title: 'แก้ไขพอร์ต',
+                          builder: (_) =>
+                              PortfolioCreateSheet(existing: portfolio),
                         ),
-                        decoration: BoxDecoration(
-                          color: const Color(0x29FFFFFF),
-                          borderRadius: BorderRadius.circular(999),
-                        ),
-                        child: const Text(
-                          'แก้ไข',
-                          style: TextStyle(
-                            fontSize: 11.5,
-                            fontWeight: FontWeight.w700,
-                            color: Color(0xFFFAF5EC),
+                        borderRadius: BorderRadius.circular(999),
+                        child: Container(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 12,
+                            vertical: 3,
+                          ),
+                          decoration: BoxDecoration(
+                            color: const Color(0x29FFFFFF),
+                            borderRadius: BorderRadius.circular(999),
+                          ),
+                          child: const Text(
+                            'แก้ไข',
+                            style: TextStyle(
+                              fontSize: 11.5,
+                              fontWeight: FontWeight.w700,
+                              color: Color(0xFFFAF5EC),
+                            ),
                           ),
                         ),
                       ),
@@ -310,7 +320,18 @@ class PortfolioDetailScreen extends ConsumerWidget {
                       const SizedBox(height: 12),
 
                       // Featured asset card (first asset)
-                      if (assets.isNotEmpty) _FeaturedAssetCard(assetNode: assets.first),
+                      if (assets.isNotEmpty)
+                        _FeaturedAssetCard(
+                          assetNode: assets.first,
+                          onBuy: () => _showTransactionSheet(context,
+                              side: 'buy',
+                              assets: assets,
+                              initial: assets.first),
+                          onSell: () => _showTransactionSheet(context,
+                              side: 'sell',
+                              assets: assets,
+                              initial: assets.first),
+                        ),
 
                       // Remaining assets
                       if (assets.length > 1) ...[
@@ -374,6 +395,30 @@ class PortfolioDetailScreen extends ConsumerWidget {
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  /// Opens the transaction form with [side] preset and [initial] preselected.
+  ///
+  /// Presented with a bare `showModalBottomSheet`, NOT `showPortoSheet`:
+  /// [TransactionSheet] wraps [SheetShell] itself, so the chrome would render
+  /// twice. Same config as `transactions.dart _editTransaction`.
+  void _showTransactionSheet(
+    BuildContext context, {
+    required String side,
+    required List<AssetNode> assets,
+    required AssetNode initial,
+  }) {
+    showModalBottomSheet(
+      context: context,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      barrierColor: const Color(0x73291C12),
+      builder: (_) => TransactionSheet(
+        side: side,
+        assets: assets.map((an) => an.asset).toList(),
+        initialAsset: initial.asset,
       ),
     );
   }
@@ -604,7 +649,16 @@ class _CreateNewCard extends StatelessWidget {
 class _FeaturedAssetCard extends StatelessWidget {
   final AssetNode assetNode;
 
-  const _FeaturedAssetCard({required this.assetNode});
+  /// Supplied by [PortfolioDetailScreen] — this card holds a single AssetNode,
+  /// so it cannot build the selectable-assets list the sheet needs.
+  final VoidCallback onBuy;
+  final VoidCallback onSell;
+
+  const _FeaturedAssetCard({
+    required this.assetNode,
+    required this.onBuy,
+    required this.onSell,
+  });
 
   @override
   Widget build(BuildContext context) {
@@ -696,7 +750,7 @@ class _FeaturedAssetCard extends StatelessWidget {
                   label: 'ซื้อเพิ่ม',
                   bgColor: const Color(0xFFDDF3F3),
                   fgColor: const Color(0xFF177E81),
-                  onTap: () => Navigator.of(context).pop(),
+                  onTap: onBuy,
                 ),
               ),
               const SizedBox(width: 8),
@@ -705,7 +759,7 @@ class _FeaturedAssetCard extends StatelessWidget {
                   label: 'ขาย',
                   bgColor: const Color(0xFFFCDFD4),
                   fgColor: const Color(0xFFA8341C),
-                  onTap: () => Navigator.of(context).pop(),
+                  onTap: onSell,
                 ),
               ),
             ],

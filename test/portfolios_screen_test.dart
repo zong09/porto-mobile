@@ -9,6 +9,7 @@ import 'package:porto_mobile/src/state/portfolios_notifier.dart';
 import 'package:porto_mobile/src/ui/screens/portfolios.dart';
 import 'package:porto_mobile/src/ui/widgets/asset_sheet.dart';
 import 'package:porto_mobile/src/ui/widgets/cards.dart';
+import 'package:porto_mobile/src/ui/widgets/transaction_sheet.dart';
 
 // ── builders ────────────────────────────────────────────────────────────────
 
@@ -276,6 +277,116 @@ void main() {
     expect(find.text('สร้างพอร์ตใหม่'), findsWidgets);
     expect(tester.takeException(), isNull);
   });
+
+  // ── ซื้อเพิ่ม / ขาย on the featured asset card ───────────────────────────
+  //
+  // Both used to be `Navigator.pop()`, which threw the user out of Portfolio
+  // detail — worse than dead, since it did something actively wrong.
+
+  /// Opens Portfolio detail on a portfolio holding one ETH asset.
+  Future<void> openDetail(WidgetTester tester) async {
+    tester.view.physicalSize = const Size(2400, 3600); // 800x1200 logical
+    addTearDown(tester.view.resetPhysicalSize);
+
+    await tester.pumpWidget(_app(PortfoliosState(nodes: [
+      _node(
+        portfolio: _pf(name: 'พอร์ต A'),
+        assets: [_an(asset: _asset(symbol: 'ETH', name: 'Ethereum'))],
+      ),
+    ])));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('พอร์ต A'));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('ซื้อเพิ่ม opens the transaction form preset to buy',
+      (tester) async {
+    await openDetail(tester);
+
+    await tester.tap(find.text('ซื้อเพิ่ม'));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(TransactionSheet), findsOneWidget);
+    expect(find.text('ซื้อสินทรัพย์'), findsOneWidget); // side: 'buy'
+    expect(find.text('Ethereum ETH'), findsOneWidget); // card's asset preset
+    expect(find.byType(PortfolioDetailScreen), findsOneWidget,
+        reason: 'must not pop the screen the user is on');
+  });
+
+  testWidgets('ขาย opens the same form preset to sell', (tester) async {
+    await openDetail(tester);
+
+    await tester.tap(find.text('ขาย'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('ขายสินทรัพย์'), findsOneWidget); // side: 'sell'
+    expect(find.text('Ethereum ETH'), findsOneWidget);
+    expect(find.byType(PortfolioDetailScreen), findsOneWidget);
+  });
+
+  // ── แก้ไข chip ──────────────────────────────────────────────────────────
+
+  testWidgets('แก้ไข opens the sheet prefilled and saves name + colour',
+      (tester) async {
+    tester.view.physicalSize = const Size(2400, 3600); // 800x1200 logical
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final rec = _RecordingPortfolios(PortfoliosState(
+      nodes: [_node(portfolio: _pf(id: 'p1', name: 'พอร์ต A', color: 2))],
+    ));
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [portfoliosProvider.overrideWith(() => rec)],
+      child: const MaterialApp(home: PortfoliosScreen()),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('พอร์ต A'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('แก้ไข'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('แก้ไขพอร์ต'), findsOneWidget);
+    // Prefilled — create mode would show a blank field.
+    expect(tester.widget<TextField>(find.byType(TextField)).controller!.text,
+        'พอร์ต A');
+
+    await tester.enterText(find.byType(TextField), 'พอร์ตเปลี่ยนชื่อ');
+    await tester.tap(find.text('บันทึก'));
+    await tester.pumpAndSettle();
+
+    expect(rec.renamed, {'id': 'p1', 'name': 'พอร์ตเปลี่ยนชื่อ'});
+    expect(rec.recolored, {'id': 'p1', 'color': 2});
+    expect(rec.added, isNull,
+        reason: 'edit must not create a second portfolio');
+  });
+
+  testWidgets('แก้ไข rejects an empty name', (tester) async {
+    tester.view.physicalSize = const Size(2400, 3600); // 800x1200 logical
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final rec = _RecordingPortfolios(PortfoliosState(
+      nodes: [_node(portfolio: _pf(id: 'p1', name: 'พอร์ต A'))],
+    ));
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [portfoliosProvider.overrideWith(() => rec)],
+      child: const MaterialApp(home: PortfoliosScreen()),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('พอร์ต A'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('แก้ไข'));
+    await tester.pumpAndSettle();
+
+    // PortfolioRepo.save throws on a blank name, as in create mode.
+    await tester.enterText(find.byType(TextField), '   ');
+    await tester.tap(find.text('บันทึก'));
+    await tester.pumpAndSettle();
+
+    expect(rec.renamed, isNull);
+    expect(find.text('กรุณากรอกชื่อพอร์ต'), findsOneWidget);
+  });
 }
 
 /// Portfolio holding one USD asset and one THB asset.
@@ -296,10 +407,12 @@ PortfolioNode _mixedNode({String id = 'p1', String name = 'ผสม'}) =>
       ],
     );
 
-/// Records addPortfolio instead of hitting the repo.
+/// Records mutations instead of hitting the repo.
 class _RecordingPortfolios extends PortfoliosNotifier {
   final PortfoliosState _s;
   Map<String, dynamic>? added;
+  Map<String, dynamic>? renamed;
+  Map<String, dynamic>? recolored;
 
   _RecordingPortfolios(this._s);
 
@@ -309,5 +422,15 @@ class _RecordingPortfolios extends PortfoliosNotifier {
   @override
   Future<void> addPortfolio({required String name, required int color}) async {
     added = {'name': name, 'color': color};
+  }
+
+  @override
+  Future<void> renamePortfolio(String id, String name) async {
+    renamed = {'id': id, 'name': name};
+  }
+
+  @override
+  Future<void> recolorPortfolio(String id, int color) async {
+    recolored = {'id': id, 'color': color};
   }
 }
