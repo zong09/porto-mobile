@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -35,9 +36,17 @@ class _AssetSheetState extends ConsumerState<AssetSheet> {
   late String _currency;
   final _symbolCtrl = TextEditingController();
   final _nameCtrl = TextEditingController();
+  final _priceCtrl = TextEditingController();
   String? _error;
 
   bool get _isEdit => widget.existing != null;
+
+  /// A fund has no price feed — `PriceRepository.resolve` returns
+  /// `manualPrice ?? 0` for it — so without this input every fund created here
+  /// is worth 0 forever. Only `fund` gets the field: `deposit` resolves to a
+  /// fixed 1 and would ignore it, and the live types have a feed plus a cache.
+  /// Optional, per `design-portfolios.md:62`.
+  bool get _needsManualPrice => _type == 'fund';
 
   @override
   void initState() {
@@ -48,6 +57,7 @@ class _AssetSheetState extends ConsumerState<AssetSheet> {
     if (e != null) {
       _symbolCtrl.text = e.symbol;
       _nameCtrl.text = e.name;
+      if (e.manualPrice != null) _priceCtrl.text = '${e.manualPrice}';
     }
   }
 
@@ -55,6 +65,7 @@ class _AssetSheetState extends ConsumerState<AssetSheet> {
   void dispose() {
     _symbolCtrl.dispose();
     _nameCtrl.dispose();
+    _priceCtrl.dispose();
     super.dispose();
   }
 
@@ -73,11 +84,31 @@ class _AssetSheetState extends ConsumerState<AssetSheet> {
       return;
     }
 
+    double? manualPrice;
+    if (_needsManualPrice) {
+      final raw = _priceCtrl.text.trim();
+      if (raw.isNotEmpty) {
+        manualPrice = double.tryParse(raw);
+        if (manualPrice == null || manualPrice < 0) {
+          setState(() => _error = 'ราคาไม่ถูกต้อง');
+          return;
+        }
+      }
+    }
+
     final notifier = ref.read(portfoliosProvider.notifier);
     final e = widget.existing;
     if (e != null) {
-      // Currency is locked — keep e.currency.
-      notifier.saveAsset(e.copyWith(type: _type, symbol: symbol, name: name));
+      // Currency is locked — keep e.currency. manualPrice is left absent for
+      // the other types rather than cleared: it is their offline fallback when
+      // the feed fails and nothing is cached (price_repository.dart:91).
+      notifier.saveAsset(e.copyWith(
+        type: _type,
+        symbol: symbol,
+        name: name,
+        manualPrice:
+            _needsManualPrice ? Value(manualPrice) : const Value.absent(),
+      ));
     } else {
       notifier.addAsset(
         portfolioId: widget.portfolioId,
@@ -85,6 +116,7 @@ class _AssetSheetState extends ConsumerState<AssetSheet> {
         symbol: symbol,
         name: name,
         currency: _currency,
+        manualPrice: manualPrice,
       );
     }
     Navigator.of(context).pop();
@@ -170,6 +202,24 @@ class _AssetSheetState extends ConsumerState<AssetSheet> {
             ),
           ),
         ),
+
+        // Manual price — funds only, see [_needsManualPrice].
+        if (_needsManualPrice) ...[
+          const SizedBox(height: 14),
+          _label('ราคาต่อหน่วย'),
+          const SizedBox(height: 6),
+          TextField(
+            controller: _priceCtrl,
+            keyboardType: const TextInputType.numberWithOptions(decimal: true),
+            decoration: InputDecoration(
+              hintText: 'เช่น 12.50',
+              suffixText: _currency == 'USD' ? r'$' : '฿',
+              border: OutlineInputBorder(
+                borderRadius: BorderRadius.circular(12),
+              ),
+            ),
+          ),
+        ],
 
         if (_error != null) ...[
           const SizedBox(height: 10),

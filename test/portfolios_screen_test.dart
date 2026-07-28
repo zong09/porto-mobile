@@ -29,6 +29,7 @@ Asset _asset({
   String name = 'Bitcoin',
   String currency = 'USD',
   String type = 'crypto',
+  double? manualPrice,
 }) =>
     Asset(
       id: id,
@@ -37,6 +38,7 @@ Asset _asset({
       symbol: symbol,
       name: name,
       currency: currency,
+      manualPrice: manualPrice,
       direction: 'long',
       sortOrder: 0,
     );
@@ -74,9 +76,10 @@ Widget _app(PortfoliosState s, {DisplayMoney? money}) => ProviderScope(
       child: const MaterialApp(home: PortfoliosScreen()),
     );
 
-Widget _sheetApp(Widget sheet) => ProviderScope(
+Widget _sheetApp(Widget sheet, {PortfoliosNotifier Function()? notifier}) =>
+    ProviderScope(
       overrides: [
-        portfoliosProvider.overrideWith(
+        portfoliosProvider.overrideWith(notifier ??
             () => _FakePortfolios(const PortfoliosState(nodes: []))),
       ],
       child: MaterialApp(home: Scaffold(body: sheet)),
@@ -134,6 +137,60 @@ void main() {
     await tester.tap(find.text('฿ THB'));
     await tester.pump();
     expect(tester.takeException(), isNull);
+  });
+
+  testWidgets('a fund carries its manual price into addAsset', (tester) async {
+    // PriceRepository resolves fund → `manualPrice ?? 0`
+    // (price_repository.dart:44), so before this field existed every fund
+    // created from the UI was worth 0 forever with no way to correct it.
+    tester.view.physicalSize = const Size(2400, 3600); // 800x1200 logical
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final rec = _RecordingPortfolios(const PortfoliosState(nodes: []));
+    await tester.pumpWidget(
+        _sheetApp(const AssetSheet(portfolioId: 'p1'), notifier: () => rec));
+    await tester.pumpAndSettle();
+
+    // Fund-only: deposit is fixed at 1 and the live types have a feed.
+    expect(find.text('ราคาต่อหน่วย'), findsNothing);
+    await tester.tap(find.text('กองทุน'));
+    await tester.pump();
+    expect(find.text('ราคาต่อหน่วย'), findsOneWidget);
+
+    await tester.enterText(
+        find.widgetWithText(TextField, 'เช่น BTC, PTT'), 'TESTFUND');
+    await tester.enterText(
+        find.widgetWithText(TextField, 'เช่น Bitcoin'), 'Test Fund');
+    await tester.enterText(
+        find.widgetWithText(TextField, 'เช่น 12.50'), '12.5');
+    await tester.tap(find.text('บันทึก'));
+    await tester.pumpAndSettle();
+
+    expect(rec.addedAsset?['manualPrice'], 12.5,
+        reason: 'the fund was created with no price and is worth 0');
+  });
+
+  testWidgets('editing a fund price reaches saveAsset', (tester) async {
+    tester.view.physicalSize = const Size(2400, 3600); // 800x1200 logical
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final rec = _RecordingPortfolios(const PortfoliosState(nodes: []));
+    await tester.pumpWidget(_sheetApp(
+      AssetSheet(
+        portfolioId: 'p1',
+        existing: _asset(type: 'fund', manualPrice: 10),
+      ),
+      notifier: () => rec,
+    ));
+    await tester.pumpAndSettle();
+
+    // Prefilled from the existing asset, then changed.
+    expect(find.widgetWithText(TextField, '10.0'), findsOneWidget);
+    await tester.enterText(find.widgetWithText(TextField, '10.0'), '25');
+    await tester.tap(find.text('บันทึก'));
+    await tester.pumpAndSettle();
+
+    expect(rec.saved?.manualPrice, 25);
   });
 
   testWidgets('AssetSheet edit mode locks currency', (tester) async {
@@ -554,6 +611,7 @@ PortfolioNode _mixedNode({String id = 'p1', String name = 'ผสม'}) =>
 class _RecordingPortfolios extends PortfoliosNotifier {
   final PortfoliosState _s;
   Map<String, dynamic>? added;
+  Map<String, dynamic>? addedAsset;
   Map<String, dynamic>? renamed;
   Map<String, dynamic>? recolored;
   Asset? saved;
@@ -567,6 +625,27 @@ class _RecordingPortfolios extends PortfoliosNotifier {
   @override
   Future<void> saveAsset(Asset asset) async {
     saved = asset;
+  }
+
+  @override
+  Future<void> addAsset({
+    required String portfolioId,
+    required String type,
+    required String symbol,
+    required String name,
+    required String currency,
+    String? cgId,
+    String? yahooSymbol,
+    double? manualPrice,
+    String direction = 'long',
+  }) async {
+    addedAsset = {
+      'type': type,
+      'symbol': symbol,
+      'name': name,
+      'currency': currency,
+      'manualPrice': manualPrice,
+    };
   }
 
   @override

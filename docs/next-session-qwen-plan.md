@@ -55,15 +55,33 @@
 > Both are the plan's own defect class, found from the design side, which is the
 > independence a same-categories cross-check cannot give.
 >
-> 1. **Fund assets are permanently worth 0.** `AssetSheet` offers กองทุน
->    (`asset_sheet.dart:24`) but has no `manualPrice` input — no `manualPrice`,
->    `cgId` or `yahooSymbol` field exists in the sheet at all. `PriceRepository`
->    resolves `fund` to `manualPrice ?? 0` (`price_repository.dart:44-45`), so
->    every fund created through the UI is valued 0 forever with no way to fix it.
->    `addAsset` already takes all three arguments. The design specifies the
->    missing control: a collapsible **ขั้นสูง** section
->    (`design-portfolios.md:62-63`). This is a selectable option that cannot
->    work — worse than an unwired control.
+> 1. **Fund assets were permanently worth 0** — ✅ **FIXED**, `AssetSheet` now
+>    has a `ราคาต่อหน่วย` input. It offered กองทุน (`asset_sheet.dart:24`) with
+>    no `manualPrice` input anywhere in the sheet, while `PriceRepository`
+>    resolves `fund` to `manualPrice ?? 0` (`price_repository.dart:44-45`) — so
+>    every fund created through the UI was valued 0 forever with no way to
+>    correct it. A selectable option that could not work: worse than an unwired
+>    control.
+>
+>    **Read `design-portfolios.md:62` as printed, not as summarised.** It says
+>    *"Optional: **manualPrice** (fund/deposit/manual) input; **cgId /
+>    yahooSymbol** advanced inputs (collapsible ขั้นสูง)"* — only cgId and
+>    yahooSymbol are inside the disclosure. Putting manualPrice behind ขั้นสูง
+>    would leave a fund at 0 unless the user knew to expand it.
+>
+>    Scoped to `fund` only, against the design's *(fund/deposit/manual)*:
+>    `deposit` resolves to a fixed 1 (`:39-41`) and would **ignore** the value —
+>    building that input is the very defect class being closed. `'manual'` is
+>    not in `_types` at all. The live types keep it absent: it is their offline
+>    fallback (`:91-93`), so edit passes `Value.absent()` rather than clearing
+>    a stored one.
+>
+>    **`cgId` is deliberately still not built.** It is written by `asset_repo`
+>    and read by *no price path in `lib/`* — an input for it would be a control
+>    that does nothing. `yahooSymbol` is genuinely read (`:70`) but defaults
+>    sensibly (`SYMBOL.BK` / `SYMBOL`), so its absence breaks nothing.
+>    `price_repository_test.dart:65` already proved `fund → manualPrice`; the
+>    missing half was only ever the UI path, which is what the new tests cover.
 > 2. **The Realized P/L banner is inert.** `portfolios.dart:372` is a bare
 >    `Container` carrying a `›` chevron, no gesture handler anywhere above it.
 >    `design-portfolios.md:49` says it opens a filtered Transactions view.
