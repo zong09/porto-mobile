@@ -203,13 +203,28 @@ class LiabilitiesScreen extends ConsumerWidget {
                                       color: Color(0xFFA8341C),
                                     ),
                                   ),
-                                  onTap: () {
-                                    showPortoSheet(
+                                  onTap: () async {
+                                    // The adjust sheet pops 'edit' rather
+                                    // than stacking the edit form on top of
+                                    // its own stale balance banner.
+                                    final action =
+                                        await showPortoSheet<String>(
                                       context,
                                       title: l.name,
                                       builder: (_) =>
                                           LiabilityAdjustSheet(
                                               liability: l),
+                                    );
+                                    if (action != 'edit' ||
+                                        !context.mounted) {
+                                      return;
+                                    }
+                                    showPortoSheet(
+                                      context,
+                                      title: 'แก้ไขหนี้สิน',
+                                      builder: (_) =>
+                                          LiabilityCreateSheet(
+                                              existing: l),
                                     );
                                   },
                                 ),

@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:porto_mobile/src/db/database.dart';
+import 'package:porto_mobile/src/repos/liability_repo.dart';
 import 'package:porto_mobile/src/domain/formatters.dart';
 import 'package:porto_mobile/src/state/display_money.dart';
 import 'package:porto_mobile/src/state/liabilities_notifier.dart';
@@ -24,11 +26,23 @@ class _RecordingLiabilities extends LiabilitiesNotifier {
   final LiabilitiesState _s;
   Map<String, dynamic>? lastAdjust;
   Map<String, dynamic>? lastAdd;
+  Liability? saved;
+  String? deleted;
 
   _RecordingLiabilities(this._s);
 
   @override
   Future<LiabilitiesState> build() async => _s;
+
+  @override
+  Future<void> saveLiability(Liability l) async {
+    saved = l;
+  }
+
+  @override
+  Future<void> deleteLiability(String id) async {
+    deleted = id;
+  }
 
   @override
   Future<void> adjust({
@@ -181,4 +195,107 @@ void main() {
     expect(rec.lastAdjust!['type'], 'add');
     expect(rec.lastAdjust!['amount'], 1000.0);
   });
+
+  // ── edit / delete a liability ───────────────────────────────────────────
+  //
+  // `saveLiability` and `deleteLiability` both had no call site in lib/. The
+  // adjust sheet only ever moved the balance; nothing could fix a typo'd name
+  // or remove a liability that was paid off.
+
+  /// Opens the adjust sheet for `_liab()` from the screen, so the pop-with-
+  /// 'edit' handshake is exercised rather than stubbed.
+  Future<_RecordingLiabilities> openAdjust(
+    WidgetTester tester, {
+    int txCount = 0,
+  }) async {
+    tester.view.physicalSize = const Size(2400, 3600); // 800x1200 logical
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final rec =
+        _RecordingLiabilities(LiabilitiesState(liabilities: [_liab()]));
+    final repo = _MockLiabRepo();
+    when(() => repo.txsFor(any())).thenAnswer(
+      (_) async => List.generate(txCount, (i) => _ltx('lt$i')),
+    );
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        liabilitiesProvider.overrideWith(() => rec),
+        liabilityRepoProvider.overrideWithValue(repo),
+      ],
+      child: const MaterialApp(home: LiabilitiesScreen()),
+    ));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('ผ่อนรถ'));
+    await tester.pumpAndSettle();
+    return rec;
+  }
+
+  testWidgets('แก้ไขข้อมูลหนี้สิน reopens the form prefilled and saves',
+      (tester) async {
+    final rec = await openAdjust(tester);
+
+    await tester.tap(find.text('แก้ไขข้อมูลหนี้สิน'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('แก้ไขหนี้สิน'), findsOneWidget);
+
+    // Read the controllers: the name field's hint is 'ผ่อนรถ' too, so
+    // widgetWithText cannot tell a prefill from an empty create form.
+    final fields = tester.widgetList<TextField>(find.byType(TextField));
+    expect(fields.first.controller!.text, 'ผ่อนรถ');
+    // 384000, not "384000.0" — same prefill rule as TransactionSheet.
+    expect(fields.elementAt(1).controller!.text, '384000');
+
+    // liability_transactions carry no currency of their own, so editing it
+    // would re-denominate the whole pay/add history.
+    expect(
+      tester
+          .widget<IgnorePointer>(
+              find.byKey(const ValueKey('liability-currency-lock')))
+          .ignoring,
+      isTrue,
+    );
+
+    await tester.enterText(find.byType(TextField).first, 'ผ่อนบ้าน');
+    await tester.tap(find.text('บันทึก'));
+    await tester.pumpAndSettle();
+
+    expect(rec.saved?.id, 'l1');
+    expect(rec.saved?.name, 'ผ่อนบ้าน');
+    expect(rec.lastAdd, isNull, reason: 'edit must not create a second row');
+  });
+
+  testWidgets('ลบหนี้สิน names the cascaded history then deletes',
+      (tester) async {
+    final rec = await openAdjust(tester, txCount: 2);
+
+    await tester.tap(find.text('ลบหนี้สิน'));
+    await tester.pumpAndSettle();
+
+    expect(find.textContaining('ประวัติจ่าย/เพิ่ม 2 รายการ'), findsOneWidget);
+
+    await tester.tap(find.text('ยกเลิก'));
+    await tester.pumpAndSettle();
+    expect(rec.deleted, isNull);
+
+    await tester.tap(find.text('ลบหนี้สิน'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ลบ'));
+    await tester.pumpAndSettle();
+
+    expect(rec.deleted, 'l1');
+  });
 }
+
+LiabilityTransaction _ltx(String id) => LiabilityTransaction(
+      id: id,
+      liabilityId: 'l1',
+      type: 'pay',
+      amount: 100,
+      date: '2026-07-01',
+      createdAt: '2026-07-01T00:00:00Z',
+    );
+
+class _MockLiabRepo extends Mock implements LiabilityRepo {}

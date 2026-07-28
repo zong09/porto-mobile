@@ -3,10 +3,17 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../db/database.dart';
 import '../../domain/formatters.dart';
+import '../../repos/liability_repo.dart';
 import '../../state/liabilities_notifier.dart';
 import '../theme/colors.dart';
+import 'confirm_delete.dart';
 
 /// Adjust sheet — pay / add for an existing liability.
+///
+/// Pops `'edit'` when the user asks to change the liability's own fields: the
+/// edit form is another sheet, and opening it on top of this one would leave a
+/// stale balance banner underneath. The screen re-presents instead — same
+/// pop-with-a-value convention as the asset picker in `transaction_sheet.dart`.
 class LiabilityAdjustSheet extends ConsumerStatefulWidget {
   final Liability liability;
 
@@ -41,6 +48,23 @@ class _LiabilityAdjustSheetState
           date: _date,
         );
     Navigator.of(context).pop();
+  }
+
+  /// `liability_transactions.liabilityId` cascades, so the pay/add history goes
+  /// with the liability — the confirm counts it.
+  Future<void> _delete() async {
+    final l = widget.liability;
+    final txs = await ref.read(liabilityRepoProvider).txsFor(l.id);
+    if (!mounted) return;
+    final ok = await confirmDelete(
+      context,
+      title: 'ลบหนี้สิน',
+      message: 'ลบ ${l.name} และประวัติจ่าย/เพิ่ม ${txs.length} รายการ '
+          '— ย้อนกลับไม่ได้',
+    );
+    if (!ok || !mounted) return;
+    await ref.read(liabilitiesProvider.notifier).deleteLiability(l.id);
+    if (mounted) Navigator.of(context).pop();
   }
 
   @override
@@ -195,6 +219,18 @@ class _LiabilityAdjustSheetState
             ),
           ),
         ),
+        const SizedBox(height: 4),
+        SizedBox(
+          width: double.infinity,
+          child: TextButton(
+            onPressed: () => Navigator.of(context).pop('edit'),
+            child: const Text(
+              'แก้ไขข้อมูลหนี้สิน',
+              style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700),
+            ),
+          ),
+        ),
+        DeleteButton(label: 'ลบหนี้สิน', onPressed: _delete),
       ],
     );
   }
@@ -226,9 +262,13 @@ class _LiabilityAdjustSheetState
   }
 }
 
-/// Create sheet — add a new liability.
+/// Create sheet — add a new liability, or edit one when [existing] is supplied.
+/// The fields are the same either way, so the แก้ไข action in
+/// [LiabilityAdjustSheet] reuses this rather than duplicating it.
 class LiabilityCreateSheet extends ConsumerStatefulWidget {
-  const LiabilityCreateSheet({super.key});
+  final Liability? existing;
+
+  const LiabilityCreateSheet({super.key, this.existing});
 
   @override
   ConsumerState<LiabilityCreateSheet> createState() =>
@@ -241,6 +281,27 @@ class _LiabilityCreateSheetState
   final _amountCtrl = TextEditingController();
   String _currency = 'THB';
 
+  bool get _isEdit => widget.existing != null;
+
+  /// Prefill text for a stored amount — same rule as `TransactionSheet`: whole
+  /// values lose the trailing `.0`, fractional ones are left untouched so no
+  /// precision is rounded away.
+  static String _editable(double v) =>
+      v == v.roundToDouble() && v.abs() < 1e15
+          ? v.toInt().toString()
+          : v.toString();
+
+  @override
+  void initState() {
+    super.initState();
+    final e = widget.existing;
+    if (e != null) {
+      _nameCtrl.text = e.name;
+      _amountCtrl.text = _editable(e.amount);
+      _currency = e.currency;
+    }
+  }
+
   @override
   void dispose() {
     _nameCtrl.dispose();
@@ -252,13 +313,14 @@ class _LiabilityCreateSheetState
     final name = _nameCtrl.text.trim();
     final amt = double.tryParse(_amountCtrl.text);
     if (name.isEmpty || amt == null || amt <= 0) return;
-    ref
-        .read(liabilitiesProvider.notifier)
-        .addLiability(
-          name: name,
-          amount: amt,
-          currency: _currency,
-        );
+    final notifier = ref.read(liabilitiesProvider.notifier);
+    final e = widget.existing;
+    if (e != null) {
+      // Currency stays put — see the lock note in build().
+      notifier.saveLiability(e.copyWith(name: name, amount: amt));
+    } else {
+      notifier.addLiability(name: name, amount: amt, currency: _currency);
+    }
     Navigator.of(context).pop();
   }
 
@@ -314,29 +376,38 @@ class _LiabilityCreateSheetState
 
         const SizedBox(height: 14),
 
-        // สกุลเงิน — segmented
-        const Text(
-          'สกุลเงิน',
-          style: TextStyle(
+        // สกุลเงิน — segmented. Locked on edit: `liability_transactions` rows
+        // carry no currency of their own, so switching it here would silently
+        // re-denominate the whole pay/add history.
+        Text(
+          _isEdit ? 'สกุลเงิน (ล็อกแล้ว)' : 'สกุลเงิน',
+          style: const TextStyle(
             fontSize: 12.5,
             fontWeight: FontWeight.w600,
             color: AppColors.muted,
           ),
         ),
         const SizedBox(height: 6),
-        Container(
-          decoration: BoxDecoration(
-            color: const Color(0xFFF5EDDE),
-            borderRadius: BorderRadius.circular(12),
-          ),
-          padding: const EdgeInsets.all(3),
-          child: Row(
-            children: [
-              _currencyPill('฿ THB', _currency == 'THB',
-                  () => setState(() => _currency = 'THB')),
-              _currencyPill(r'$ USD', _currency == 'USD',
-                  () => setState(() => _currency = 'USD')),
-            ],
+        IgnorePointer(
+          key: const ValueKey('liability-currency-lock'),
+          ignoring: _isEdit,
+          child: Opacity(
+            opacity: _isEdit ? 0.5 : 1,
+            child: Container(
+              decoration: BoxDecoration(
+                color: const Color(0xFFF5EDDE),
+                borderRadius: BorderRadius.circular(12),
+              ),
+              padding: const EdgeInsets.all(3),
+              child: Row(
+                children: [
+                  _currencyPill('฿ THB', _currency == 'THB',
+                      () => setState(() => _currency = 'THB')),
+                  _currencyPill(r'$ USD', _currency == 'USD',
+                      () => setState(() => _currency = 'USD')),
+                ],
+              ),
+            ),
           ),
         ),
 
