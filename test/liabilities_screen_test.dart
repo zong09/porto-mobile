@@ -169,6 +169,44 @@ void main() {
     expect(rec.lastAdjust!['liabilityId'], 'l1');
   });
 
+  // ── the picker must not accept a future date ─────────────────────────────
+  //
+  // This picker capped at 2100 while the transaction sheet's caps at today:
+  // two pickers, two policies for the same question. A pay/add is a record of
+  // something that happened, so it is aligned on today and pinned here.
+  //
+  // Asserted on the next-month arrow rather than on a day cell to keep it
+  // clock-independent: with `lastDate` at now, today's month is always the last
+  // allowed one, whatever the date is when the suite runs. Under the old 2100
+  // cap the arrow is enabled.
+
+  testWidgets('adjust sheet: the date picker stops at today', (tester) async {
+    tester.view.physicalSize = const Size(2400, 3600); // 800x1200 logical
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final rec = _RecordingLiabilities(
+      LiabilitiesState(liabilities: [_liab()]),
+    );
+
+    await tester.pumpWidget(
+        _wrap(LiabilityAdjustSheet(liability: _liab()), rec));
+    await tester.pumpAndSettle();
+
+    // Fields in build order: [0] จำนวนเงิน, [1] วันที่ — readOnly, opens the
+    // picker on tap. Indexed rather than found by text, which would be today's.
+    await tester.tap(find.byType(TextField).at(1));
+    await tester.pumpAndSettle();
+
+    final dialog = find.byType(DatePickerDialog);
+    expect(dialog, findsOneWidget);
+
+    final nextMonth = tester.widget<IconButton>(find.descendant(
+      of: dialog,
+      matching: find.widgetWithIcon(IconButton, Icons.chevron_right),
+    ));
+    expect(nextMonth.onPressed, isNull);
+  });
+
   testWidgets('adjust sheet: toggling add calls adjust(type=add)',
       (tester) async {
     final rec = _RecordingLiabilities(

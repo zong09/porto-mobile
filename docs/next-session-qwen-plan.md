@@ -156,6 +156,28 @@
 >    sheet on tap. Two lines of guard against a reachable input, not defensive
 >    padding.
 >
+>    **`liability_sheet.dart` was then aligned to match.** Its adjust sheet
+>    already had a working picker — `readOnly: true` + `onTap`, a different
+>    implementation of the same thing — but capped at `DateTime(2100)`, so the
+>    app shipped two pickers with two answers to "can this be dated in the
+>    future". A pay/add is equally a record of something that happened, so both
+>    now cap at today. It deliberately gets **no** `tryParse`/clamp guard: its
+>    `_date` is only ever written by `DateTime.now()` or the picker itself, never
+>    from the DB or an import, so the malformed and future cases are unreachable
+>    there. Both bounds read one hoisted `now` rather than calling `DateTime.now()`
+>    twice, so `initialDate` cannot drift past `lastDate` between the two calls.
+>
+>    Its test asserts on the **next-month arrow being disabled**, not on a day
+>    cell: with `lastDate` at now, today's month is always the last allowed one,
+>    so the assertion holds whatever the clock says. Under the old 2100 cap the
+>    arrow is enabled, which is how it was confirmed failing first.
+>
+>    Two pre-existing quirks in that picker were left alone, on purpose:
+>    `initialDate` ignores the already-picked `_date`, so reopening it jumps back
+>    to today; and its `TextEditingController` is constructed inside `build` and
+>    never disposed — harmless only because `readOnly: true` means there is no
+>    user text to lose. Neither is a dead control, and neither was in scope.
+>
 >    The test asserts **both** halves — the field re-renders *and*
 >    `saveTransaction` carries the new date. A `setState` that never fed
 >    `_save()` passes the label assertion alone, the same "green for the wrong

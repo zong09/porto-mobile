@@ -181,11 +181,16 @@ class _LiabilityAdjustSheetState
             ),
           ),
           onTap: () async {
+            // Capped at today, matching transaction_sheet.dart: a pay/add is a
+            // record of something that happened, so a future date is a
+            // data-entry error. One `now` feeds both bounds, so initialDate
+            // cannot drift past lastDate between two separate calls.
+            final now = DateTime.now();
             final d = await showDatePicker(
               context: context,
-              initialDate: DateTime.now(),
+              initialDate: now,
               firstDate: DateTime(2000),
-              lastDate: DateTime(2100),
+              lastDate: now,
             );
             if (d != null) {
               setState(() {
