@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../db/database.dart';
 import '../db/misc_dao.dart';
 import 'binance_client.dart';
+import 'price_history_client.dart';
 import 'yahoo_client.dart';
 import '../state/providers.dart';
 
@@ -100,4 +101,11 @@ final priceRepositoryProvider = Provider((ref) => PriceRepository(
       ref.watch(miscDaoProvider),
       BinanceClient(Dio(), getFx: () async => YahooClient(Dio()).getFxRate()),
       YahooClient(Dio()),
+    ));
+
+/// Infra provider for the chart-sheet history client. Same `getFx` wiring as
+/// [priceRepositoryProvider] — crypto klines are quoted in USDT and converted.
+final priceHistoryClientProvider = Provider((ref) => PriceHistoryClient(
+      Dio(),
+      getFx: () async => YahooClient(Dio()).getFxRate(),
     ));

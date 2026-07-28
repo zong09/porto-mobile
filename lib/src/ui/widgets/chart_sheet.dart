@@ -42,12 +42,16 @@ class _ChartSheetState extends State<ChartSheet> {
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        // Title
-        Text(
-          widget.title,
-          style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
-        ),
-        const SizedBox(height: 14),
+        // Title. Skipped when empty: presented through `showPortoSheet` the
+        // SheetShell chrome already renders it, and design-settings.md puts the
+        // title on the sheet, not in the body.
+        if (widget.title.isNotEmpty) ...[
+          Text(
+            widget.title,
+            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w700),
+          ),
+          const SizedBox(height: 14),
+        ],
         // Current price + change pill
         if (history.isNotEmpty) ..._buildPriceHeader(history),
         if (history.isEmpty) ..._buildNoData(),
