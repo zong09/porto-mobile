@@ -102,13 +102,55 @@ Qwen's reliability is *task-shaped*: read-only inventory with a rigid output for
 a two-command verification run failed outright last session (it ran `flutter doctor` instead).
 **Never let it verify — run analyze/test yourself.**
 
+## Follow-up, same session — the three open items were then closed
+
+### `portfolios.dart` mixed-currency sums — DONE (`65cfab0`)
+
+The warning under fix 1 is resolved. Shared helpers now live beside the node types in
+`portfolios_notifier.dart` — `assetCostThb` / `assetsCostThb` / `nodeCostThb` /
+`assetRealizedPnlThb` — with **the aggregate-vs-native rule written at the definition**:
+
+> Aggregates over possibly-mixed assets convert first; single-asset rows keep their own
+> amount and their own glyph.
+
+Overview dropped its private `_nodeCostThb` and uses the shared ones, so the two screens
+cannot diverge again. Its fx-35 test passed untouched, which is what proves the refactor
+was behaviour-preserving.
+
+**The allocation bars were the quiet part.** They render percentages, not money, so nothing
+looked wrong — but a portfolio holding \$1000 and ฿1000 drew two equal segments. All four
+folds now normalise. Verified sensitive by reverting one fold to the raw sum and watching the
+50%/50% legend assertion fail.
+
+Also fixed en route: the detail Realized P/L hardcoded `$`, and money values used bare
+`toStringAsFixed(2)` so the screen mixed grouped and ungrouped numbers.
+
+### Edit-mode prefill — DONE
+
+`_editable()` drops the `.0` from whole amounts so 3 prefills as `3`, not `3.0`. Fractional
+values are left to `toString()` so nothing is rounded away — both cases are tested.
+
+### On-device `integration_test/` — PORTED, **NOT VERIFIED**
+
+`integration_test/app_test.dart` exists and is analyze-clean, with the `integration_test` SDK
+dev-dep added. **It has never been executed.** `flutter test integration_test/app_test.dart`
+here still reports *"No devices are connected"* — only Windows-desktop and Edge are available
+and this project has no runner for either. Treat its first real run as the actual test of it.
+
+**It does not duplicate the flow.** The 200-line body moved to `test/smoke_flow.dart` as
+`runSmokeFlow()`; `test/smoke_test.dart` and `integration_test/app_test.dart` are thin
+wrappers differing only in binding. So the on-device file cannot rot while unrunnable — the
+headless wrapper exercises the same body on every `flutter test`. `smoke_flow.dart` is
+deliberately not named `*_test.dart`, so the runner does not collect it directly.
+
+**`flutter test` count excludes it** — 176 green is what actually ran.
+
 ## Still open
 
-- **`portfolios.dart` mixed-currency sums** — see the warning under fix 1. Highest-value next task.
-- `transaction_sheet.dart` edit mode prefills `_qtyCtrl` via `quantity.toString()`, so 3 renders
-  as `3.0`. Cosmetic; now reachable for the first time via fix 3.
-- On-device `integration_test/` — needs an emulator/device.
-- Dual-currency inline display — design contradicts it; don't implement.
+- **Dual-currency inline display — still deliberately NOT done.** `phase4-handoff.md:58`
+  records why: the `0.72` in the design is *opacity ranks*, misread as a currency treatment.
+  Mobile design 1b is THB-primary with a single display-currency toggle. Implementing it would
+  contradict the design, so it needs a product decision, not a coding task.
 
 ## Test-harness gotchas (cost real time this session)
 
@@ -126,6 +168,9 @@ a two-command verification run failed outright last session (it ran `flutter doc
 ```bash
 export PATH="/c/src/flutter/bin:$PATH"   # Flutter 3.44.6 at C:\src\flutter, NOT on PATH
 cd /c/Gits/porto-mobile
-flutter analyze lib test    # must be clean
-flutter test                # 171 green
+flutter analyze lib test integration_test   # must be clean
+flutter test                                # 176 green
+
+# On-device only — fails here with "No devices are connected":
+flutter test integration_test/app_test.dart
 ```

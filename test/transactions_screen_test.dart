@@ -364,8 +364,31 @@ void main() {
     // Edit mode is titled for what it does, and prefills from the tx.
     expect(find.text('แก้ไขรายการ'), findsOneWidget);
     expect(find.text('Bitcoin BTC'), findsOneWidget);
-    expect(find.widgetWithText(TextField, '3.0'), findsOneWidget);
-    expect(find.widgetWithText(TextField, '70.0'), findsOneWidget);
+    // Whole amounts prefill as "3", not double.toString()'s "3.0".
+    expect(find.widgetWithText(TextField, '3'), findsOneWidget);
+    expect(find.widgetWithText(TextField, '70'), findsOneWidget);
+  });
+
+  testWidgets('edit prefill keeps fractional amounts intact', (tester) async {
+    final asset = _asset(id: 'a1', symbol: 'BTC', name: 'Bitcoin');
+    final tx = _tx(id: 't10', assetId: 'a1', quantity: 0.5, price: 12.25);
+
+    await tester.pumpWidget(ProviderScope(
+      child: MaterialApp(
+        home: Scaffold(
+          body: TransactionSheet(
+            side: 'buy',
+            assets: [asset],
+            initialAsset: asset,
+            existing: tx,
+          ),
+        ),
+      ),
+    ));
+    await tester.pumpAndSettle();
+
+    expect(find.widgetWithText(TextField, '0.5'), findsOneWidget);
+    expect(find.widgetWithText(TextField, '12.25'), findsOneWidget);
   });
 }
 

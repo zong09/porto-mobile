@@ -53,6 +53,11 @@ dev_dependencies:
   flutter_test:
     sdk: flutter
 
+  # On-device entry point for the T4.2 smoke flow (integration_test/app_test.dart).
+  # Not exercised by `flutter test`, which needs a device for it.
+  integration_test:
+    sdk: flutter
+
   flutter_lints: ^6.0.0
   flutter_launcher_icons: ^0.14.4
   build_runner: ^2.15.1

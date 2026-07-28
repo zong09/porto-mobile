@@ -54,13 +54,21 @@ class _TransactionSheetState extends ConsumerState<TransactionSheet> {
   /// and fee are entered in it, not in the display currency.
   String get _nativeSymbol => _selected?.currency == 'USD' ? r'$' : '฿';
 
+  /// Prefill text for a stored amount. `double.toString()` renders 3 as "3.0",
+  /// which the user then has to edit around. Whole values drop the ".0";
+  /// fractional ones are left alone so no precision is lost.
+  static String _editable(double v) =>
+      v == v.roundToDouble() && v.abs() < 1e15
+          ? v.toInt().toString()
+          : v.toString();
+
   @override
   void initState() {
     super.initState();
     if (widget.existing != null) {
-      _qtyCtrl.text = widget.existing!.quantity.toString();
-      _priceCtrl.text = widget.existing!.price.toString();
-      _feeCtrl.text = widget.existing!.fee.toString();
+      _qtyCtrl.text = _editable(widget.existing!.quantity);
+      _priceCtrl.text = _editable(widget.existing!.price);
+      _feeCtrl.text = _editable(widget.existing!.fee);
       _date = widget.existing!.date;
       _selected = widget.assets.firstWhere(
         (a) => a.id == widget.existing!.assetId,
