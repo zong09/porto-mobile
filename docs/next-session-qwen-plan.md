@@ -1,5 +1,85 @@
 # Plan — next session, with Qwen doing the legwork
 
+> ## ✅ EXECUTED 2026-07-28 — steps 0, Q1, Q2 and the overviewProvider fix
+>
+> Seven commits on `main` (`c035fd0`..`986bc85`).
+> `flutter analyze lib test integration_test` clean, **199 tests green** (was 196).
+>
+> **Commit order changed from the table below.** As written it does not compile:
+> `portfolios.dart` carries *both* the asset edit/delete work and the
+> `showAssetChartSheet` call, so commit 2 called a function created in commit 3.
+> Chart-sheet files now land first (unused), then `portfolios.dart` brings both
+> call sites at once.
+>
+> **Q3 was skipped.** Its verify step is "read the four 3-line `_reload()` bodies
+> and check Qwen's rollup" — strictly more work than just reading them. Read
+> directly; the matrix in this doc was correct in every cell.
+>
+> ### The overviewProvider fix — premise confirmed first
+>
+> The diagnosis below is derived from a grep, which proves nothing on its own.
+> The question that settles it: does `OverviewNotifier.build()` use `ref.watch`
+> or `ref.read`? It uses **`ref.read`, and on the repos, not the notifier
+> providers** (`overview_notifier.dart:64-69`) — so nothing propagates and the
+> bug is real. Had it been `watch`, the whole fix would have been a no-op plus a
+> test passing for the wrong reason. **Check this before trusting an
+> invalidation grep.**
+>
+> Fixed by adding `ref.invalidate(overviewProvider)` to the three `_reload()`s
+> that feed Net Worth. `SettingsNotifier` deliberately left alone: `setCurrency`
+> and `setLanguage` do not feed `build()`, and `importFromJson` already has it.
+>
+> Three notifier-level tests, one per edge. **Verified by stashing the lib
+> change** — all three fail (0 vs -1000, 0 vs 3500, 3500 vs 0) and pass with it.
+> Without that stash-check a `container.listen`-less version passes for the
+> wrong reason, so do it whenever the test targets an autoDispose provider.
+>
+> ### Qwen's accuracy, third data point
+>
+> Q1 (design affordances): **good.** ~60 lines, three spot-checked at
+> `file:line` and all three accurate. This is the job shape that pays.
+> It did leak Thai label names into its output despite the instruction —
+> harmless in a read-only inventory, but the "never Thai" rule is not reliably
+> obeyed, only made safe by the job being read-only.
+>
+> Q2a: **half wrong on the only lines that mattered.** Of four `0 | NONE`
+> reports, two were false — `AreaChartPainter` is constructed at
+> `area_chart.dart:26` and `DonutChartPainter` at `donut_chart.dart:43`, both
+> inside their own widget's `build`. Qwen appears to skip same-file
+> constructions. `BarChart` (the planted known-answer) was correctly 0.
+> **Re-grep every zero; that is where the entire error rate lives.**
+> Q2b: clean, all six screens constructed once.
+>
+> ### Findings — Q1 diffed against `lib/`, two real gaps
+>
+> Both are the plan's own defect class, found from the design side, which is the
+> independence a same-categories cross-check cannot give.
+>
+> 1. **Fund assets are permanently worth 0.** `AssetSheet` offers กองทุน
+>    (`asset_sheet.dart:24`) but has no `manualPrice` input — no `manualPrice`,
+>    `cgId` or `yahooSymbol` field exists in the sheet at all. `PriceRepository`
+>    resolves `fund` to `manualPrice ?? 0` (`price_repository.dart:44-45`), so
+>    every fund created through the UI is valued 0 forever with no way to fix it.
+>    `addAsset` already takes all three arguments. The design specifies the
+>    missing control: a collapsible **ขั้นสูง** section
+>    (`design-portfolios.md:62-63`). This is a selectable option that cannot
+>    work — worse than an unwired control.
+> 2. **The Realized P/L banner is inert.** `portfolios.dart:372` is a bare
+>    `Container` carrying a `›` chevron, no gesture handler anywhere above it.
+>    `design-portfolios.md:49` says it opens a filtered Transactions view.
+>    Exactly the `แก้ไข`-chip shape. **Needs a product decision before it can be
+>    built:** the design does not say *which* filter, and `TransactionsScreen`
+>    keeps `_filter` as private state (`transactions.dart:25`) with no way to
+>    seed it — so this needs the `onOpenLiabilities`/`ดูทั้งหมด` treatment, a
+>    callback up to `AppShell`, plus an initial-filter parameter.
+>
+> Checked and **already correctly wired** (do not re-find): the Liabilities stat
+> card (`overview.dart:201`, `GestureDetector` → `onOpenLiabilities`), the
+> ดูทั้งหมด link, the transaction filter pills, every tappable row.
+> Specified but **entirely unbuilt, not dead controls**: the first-run screen
+> CTAs (`design-overview.md:62`) and the `+ ใหม่` new-portfolio chip in the
+> transaction form (`design-transactions.md:50`).
+
 **Written:** 2026-07-28, at the end of the session that closed the four step-4
 findings (see `next-session-plan.md`).
 
