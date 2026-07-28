@@ -471,7 +471,11 @@ void main() {
     addTearDown(tester.view.resetPhysicalSize);
 
     final asset = _asset(id: 'a1', symbol: 'BTC');
-    final tx = _tx(id: 't9', assetId: 'a1', quantity: 2, date: '2026-07-10');
+    // Not the shared 2026-07-10 fixture: `lastDate` is DateTime.now(), so a
+    // fixture in the current month would couple this test to the wall clock —
+    // on a machine dated before it, the clamp opens the picker on a different
+    // month and the expected date never appears. 2020 is behind any real clock.
+    final tx = _tx(id: 't9', assetId: 'a1', quantity: 2, date: '2020-01-15');
     final rec = _RecordingTx();
 
     await tester.pumpWidget(ProviderScope(
@@ -485,8 +489,8 @@ void main() {
     ));
     await tester.pumpAndSettle();
 
-    expect(find.text('2026-07-10'), findsOneWidget);
-    await tester.tap(find.text('2026-07-10'));
+    expect(find.text('2020-01-15'), findsOneWidget);
+    await tester.tap(find.text('2020-01-15'));
     await tester.pumpAndSettle();
 
     // Scope the day finder to the dialog — the sheet behind it carries its own
@@ -500,10 +504,10 @@ void main() {
 
     // Assert both halves: the field shows the new date *and* saving carries it.
     // A setState that never reached _save() passes the first one alone.
-    expect(find.text('2026-07-03'), findsOneWidget);
+    expect(find.text('2020-01-03'), findsOneWidget);
     await tester.tap(find.text('บันทึกรายการ'));
     await tester.pumpAndSettle();
-    expect(rec.saved?.date, '2026-07-03');
+    expect(rec.saved?.date, '2020-01-03');
   });
 }
 

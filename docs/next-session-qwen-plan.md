@@ -163,6 +163,16 @@
 >    `expect(find.byType(DatePickerDialog), findsOneWidget)`, which is the
 >    missing handler and nothing else.
 >
+>    Two things the test deliberately does **not** share with its neighbours.
+>    Its fixture date is `2020-01-15`, not the file's usual `2026-07-10`:
+>    `lastDate` is `DateTime.now()`, so a fixture in the *current* month couples
+>    the test to the wall clock — on a machine dated earlier the clamp opens the
+>    picker on a different month and the expected date never appears. 2020 is
+>    behind any plausible clock. And it taps `OK`, which only exists because no
+>    `localizationsDelegates` are registered, so the picker falls back to en_US;
+>    **adding Thai delegates to the app will break this tap**, confusingly, at
+>    the confirm step.
+>
 > 4. **The โน้ต field silently discards what the user types** — ⚠️ **FOUND, NOT
 >    FIXED, and that is a decision.** `_noteCtrl` is created
 >    (`transaction_sheet.dart:45`), rendered with a label and a hint (`:381`),
