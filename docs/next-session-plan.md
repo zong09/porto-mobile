@@ -3,6 +3,59 @@
 **Written:** 2026-07-28, at the end of the session that produced `b6d736e` / `65cfab0` / `7382bd4`.
 **Baseline:** `main` clean, `flutter analyze lib test integration_test` clean, **176 tests green**.
 
+> ## ✅ DONE 2026-07-28 — `c7c37ff` (task 1) + `8660b85` (tasks 2 & 3)
+>
+> All three tasks closed, `tasks/T3.06.md` amended (step 5), audit re-run with the
+> four sharper categories (step 4 — **findings below, not yet fixed**).
+> `flutter analyze lib test integration_test` clean, **181 tests green** (was 176).
+>
+> Decisions taken, for the record:
+> - **Entry point:** the recommended dashed "＋ เพิ่มสินทรัพย์" card. Renders even
+>   when the portfolio is empty, which is the dead-end case.
+> - **Snapshot fix:** constructor still takes `PortfolioNode`; it is now only the
+>   fallback while the provider resolves. Kept the signature to avoid churning the
+>   call site and tests.
+> - **Portfolio delete: deliberately NOT added.** `deletePortfolio` stays uncalled;
+>   "consider whether delete belongs here" was speculative scope.
+> - **One change outside the three tasks:** `TransactionsNotifier._reload` now
+>   invalidates `portfoliosProvider`. Without it task 2's buttons save a buy that
+>   the screen never reflects — a wired-but-useless control, the thing this plan
+>   exists to stop.
+>
+> Two things worth knowing that the plan did not predict:
+> - `TransactionsNotifier` is **autoDispose**, and nothing keeps it alive except
+>   `AppShell` being an `IndexedStack` that mounts `TransactionsScreen` on every
+>   tab. A `TransactionSheet` opened with that screen unmounted loses the write
+>   silently — `ref.read` returns, the provider disposes, the repo call never
+>   lands. Fine in the shipped app; fragile. `add_asset_flow_test.dart` has to
+>   watch the provider explicitly to reproduce real conditions.
+> - The `บันทึก` / `บันทึกรายการ` save-button labels differ between sheet types.
+>   `find.text` is exact, so this costs a test-debugging cycle every time.
+
+---
+
+## Step 4 re-run — what the four sharper categories found
+
+Ran over `lib/` after the fixes. Every hit is the **same class of defect** as the
+original three: complete, unit-tested code with no path to it from the UI.
+
+**Beware the obvious grep.** Counting `.deleteAsset(` / `.deletePortfolio(` /
+`.reorderPortfolios(` in `lib/` returns 1 each and looks clean — every one of
+those is a **DAO method of the same name** (`portfolio_repo.dart:32`,
+`asset_repo.dart:90`), not the notifier's. A Qwen run and a naive local grep
+produced identical wrong counts, which is the plan's "agreement proves nothing"
+warning landing a second time. Read the matched lines, never the count.
+
+| Finding | Caught by | Detail |
+|---|---|---|
+| **`ChartSheet` is orphaned** | never constructed outside tests | Built and tested (`settings_screen_test.dart:147`), constructed nowhere in `lib/`. Exactly what `AssetSheet` was. |
+| **`BarChart` is orphaned** | never constructed outside tests | Only `bar_chart_test.dart` builds it. |
+| **No way to edit or delete an asset** | notifier method with no call site | `AssetSheet(existing:)` is passed only in a test, so its edit branch is unreachable; `saveAsset`'s sole call site sits inside it, and notifier `deleteAsset` has none. Asset rows in Portfolio detail are not tappable. The likely fix is symmetric with task 3: make `_AssetRow` / `_FeaturedAssetCard` open `AssetSheet(existing:)`. |
+| **`deleteTransaction`, `saveLiability`, `deletePortfolio`, `reorderPortfolios` uncalled** | notifier method with no call site | No UI deletes a transaction or edits a liability. Decide per item whether the design wants it before building. |
+
+Category 3 (action-labelled `Container` with no ancestor gesture handler) came up
+empty after the `แก้ไข` fix.
+
 ---
 
 ## Why this exists
