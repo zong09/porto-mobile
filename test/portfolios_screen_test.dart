@@ -1,12 +1,18 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:mocktail/mocktail.dart';
 import 'package:porto_mobile/src/db/database.dart';
+import 'package:porto_mobile/src/prices/price_history_client.dart';
+import 'package:porto_mobile/src/prices/price_repository.dart';
+import 'package:porto_mobile/src/repos/transaction_repo.dart';
 import 'package:porto_mobile/src/domain/position_calculator.dart';
 import 'package:porto_mobile/src/domain/formatters.dart';
 import 'package:porto_mobile/src/state/display_money.dart';
 import 'package:porto_mobile/src/state/portfolios_notifier.dart';
 import 'package:porto_mobile/src/ui/screens/portfolios.dart';
+import 'package:porto_mobile/src/ui/widgets/area_chart.dart';
+import 'package:porto_mobile/src/ui/widgets/asset_chart_sheet.dart';
 import 'package:porto_mobile/src/ui/widgets/asset_sheet.dart';
 import 'package:porto_mobile/src/ui/widgets/cards.dart';
 import 'package:porto_mobile/src/ui/widgets/transaction_sheet.dart';
@@ -387,7 +393,144 @@ void main() {
     expect(rec.renamed, isNull);
     expect(find.text('กรุณากรอกชื่อพอร์ต'), findsOneWidget);
   });
+
+  // ── edit / delete an asset ──────────────────────────────────────────────
+  //
+  // `AssetSheet(existing:)` used to be reachable only from a test, so its edit
+  // branch — and notifier `deleteAsset` behind it — had no path from the UI.
+
+  /// Opens Portfolio detail on `_mixedNode()` (BTC featured + PTT in the row
+  /// list) against [rec], with a transaction repo that reports [txCount] rows.
+  Future<void> openMixedDetail(
+    WidgetTester tester,
+    _RecordingPortfolios rec, {
+    int txCount = 0,
+  }) async {
+    tester.view.physicalSize = const Size(2400, 3600); // 800x1200 logical
+    addTearDown(tester.view.resetPhysicalSize);
+
+    final txRepo = _MockTxRepo();
+    when(() => txRepo.byAsset(any())).thenAnswer(
+      (_) async => List.generate(txCount, (i) => _tx('t$i')),
+    );
+
+    final history = _MockHistory();
+    when(() => history.cryptoHistory(any(), any()))
+        .thenAnswer((_) async => const [PricePoint(1, 10), PricePoint(2, 12)]);
+
+    await tester.pumpWidget(ProviderScope(
+      overrides: [
+        portfoliosProvider.overrideWith(() => rec),
+        transactionRepoProvider.overrideWithValue(txRepo),
+        priceHistoryClientProvider.overrideWithValue(history),
+      ],
+      child: const MaterialApp(home: PortfoliosScreen()),
+    ));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ผสม'));
+    await tester.pumpAndSettle();
+  }
+
+  testWidgets('tapping an asset row opens the sheet in edit mode',
+      (tester) async {
+    await openMixedDetail(
+        tester, _RecordingPortfolios(PortfoliosState(nodes: [_mixedNode()])));
+
+    // 'PTT' is both the 38×38 avatar glyph and the row title, so tap the row's
+    // unique trailing amount instead.
+    await tester.tap(find.text('฿1,000.00'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('แก้ไขสินทรัพย์'), findsOneWidget);
+    expect(tester.widget<IgnorePointer>(_currencyIgnorePointer()).ignoring,
+        isTrue,
+        reason: 'edit mode locks the currency (CONTRACTS §7)');
+  });
+
+  testWidgets('tapping the featured card header opens the sheet in edit mode',
+      (tester) async {
+    final rec = _RecordingPortfolios(PortfoliosState(nodes: [_mixedNode()]));
+    await openMixedDetail(tester, rec);
+
+    await tester.tap(find.text('Bitcoin'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('แก้ไขสินทรัพย์'), findsOneWidget);
+
+    // Saving goes through saveAsset, not addAsset.
+    await tester.enterText(find.byType(TextField).last, 'Bitcoin XBT');
+    await tester.tap(find.text('บันทึก'));
+    await tester.pumpAndSettle();
+
+    expect(rec.saved?.name, 'Bitcoin XBT');
+    expect(rec.saved?.id, 'p1-usd');
+  });
+
+  testWidgets('ลบสินทรัพย์ names the cascaded transactions before deleting',
+      (tester) async {
+    final rec = _RecordingPortfolios(PortfoliosState(nodes: [_mixedNode()]));
+    await openMixedDetail(tester, rec, txCount: 3);
+
+    await tester.tap(find.text('฿1,000.00')); // the PTT row
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ลบสินทรัพย์'));
+    await tester.pumpAndSettle();
+
+    // The confirm must say what the FK cascade takes with it, not just "sure?".
+    expect(
+      find.textContaining('รายการซื้อขาย 3 รายการ'),
+      findsOneWidget,
+    );
+
+    // Cancelling leaves the row alone.
+    await tester.tap(find.text('ยกเลิก'));
+    await tester.pumpAndSettle();
+    expect(rec.deletedAsset, isNull);
+
+    await tester.tap(find.text('ลบสินทรัพย์'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('ลบ'));
+    await tester.pumpAndSettle();
+
+    expect(rec.deletedAsset, 'p1-thb');
+  });
+
+  // ── ChartSheet entry point ──────────────────────────────────────────────
+  //
+  // design-settings.md:38 puts it on "the featured-asset sparkline in Portfolio
+  // detail". Before this, ChartSheet was built and tested but constructed
+  // nowhere in lib/.
+
+  testWidgets('tapping the featured sparkline opens the price-history sheet',
+      (tester) async {
+    await openMixedDetail(
+        tester, _RecordingPortfolios(PortfoliosState(nodes: [_mixedNode()])));
+
+    // The detail screen's only AreaChart is the featured card's sparkline.
+    await tester.tap(find.byType(AreaChart));
+    await tester.pumpAndSettle();
+
+    expect(find.byType(AssetChartSheet), findsOneWidget);
+    expect(find.text('Bitcoin · BTC'), findsOneWidget,
+        reason: 'SheetShell owns the title — ChartSheet must not repeat it');
+    expect(find.text('7D'), findsOneWidget);
+  });
 }
+
+Transaction _tx(String id) => Transaction(
+      id: id,
+      assetId: 'p1-thb',
+      side: 'buy',
+      quantity: 1,
+      price: 1,
+      fee: 0,
+      date: '2026-07-01',
+      createdAt: '2026-07-01T00:00:00Z',
+    );
+
+class _MockTxRepo extends Mock implements TransactionRepo {}
+
+class _MockHistory extends Mock implements PriceHistoryClient {}
 
 /// Portfolio holding one USD asset and one THB asset.
 PortfolioNode _mixedNode({String id = 'p1', String name = 'ผสม'}) =>
@@ -413,11 +556,23 @@ class _RecordingPortfolios extends PortfoliosNotifier {
   Map<String, dynamic>? added;
   Map<String, dynamic>? renamed;
   Map<String, dynamic>? recolored;
+  Asset? saved;
+  String? deletedAsset;
 
   _RecordingPortfolios(this._s);
 
   @override
   Future<PortfoliosState> build() async => _s;
+
+  @override
+  Future<void> saveAsset(Asset asset) async {
+    saved = asset;
+  }
+
+  @override
+  Future<void> deleteAsset(String id) async {
+    deletedAsset = id;
+  }
 
   @override
   Future<void> addPortfolio({required String name, required int color}) async {

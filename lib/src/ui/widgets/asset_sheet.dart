@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../../db/database.dart';
+import '../../repos/transaction_repo.dart';
 import '../../state/portfolios_notifier.dart';
 import '../theme/colors.dart';
+import 'confirm_delete.dart';
 
 /// Add / edit an asset. In edit mode (`existing != null`) the currency is
 /// LOCKED — transactions are stored in the asset's native currency, so it must
@@ -86,6 +88,26 @@ class _AssetSheetState extends ConsumerState<AssetSheet> {
       );
     }
     Navigator.of(context).pop();
+  }
+
+  /// Deleting an asset cascades its transactions away (schema FK
+  /// `transactions.assetId … onDelete: cascade`), so the confirm counts them
+  /// first. The count is read on tap rather than watched, to keep this sheet
+  /// off `transactionsProvider` — callers that override only the portfolios
+  /// provider still pump it fine.
+  Future<void> _delete() async {
+    final e = widget.existing!;
+    final txs = await ref.read(transactionRepoProvider).byAsset(e.id);
+    if (!mounted) return;
+    final ok = await confirmDelete(
+      context,
+      title: 'ลบสินทรัพย์',
+      message: 'ลบ ${e.symbol} และรายการซื้อขาย ${txs.length} รายการที่ผูกกับ'
+          'สินทรัพย์นี้ ย้อนกลับไม่ได้',
+    );
+    if (!ok || !mounted) return;
+    await ref.read(portfoliosProvider.notifier).deleteAsset(e.id);
+    if (mounted) Navigator.of(context).pop();
   }
 
   @override
@@ -178,6 +200,11 @@ class _AssetSheetState extends ConsumerState<AssetSheet> {
             ),
           ),
         ),
+
+        if (_isEdit) ...[
+          const SizedBox(height: 4),
+          DeleteButton(label: 'ลบสินทรัพย์', onPressed: _delete),
+        ],
       ],
     );
   }

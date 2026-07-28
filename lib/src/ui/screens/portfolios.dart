@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:porto_mobile/src/db/database.dart';
 import 'package:porto_mobile/src/domain/formatters.dart';
 import 'package:porto_mobile/src/state/display_money.dart';
 import 'package:porto_mobile/src/state/portfolios_notifier.dart';
 import 'package:porto_mobile/src/ui/theme/colors.dart';
 import 'package:porto_mobile/src/ui/widgets/area_chart.dart';
+import 'package:porto_mobile/src/ui/widgets/asset_chart_sheet.dart';
 import 'package:porto_mobile/src/ui/widgets/asset_sheet.dart';
 import 'package:porto_mobile/src/ui/widgets/cards.dart';
 import 'package:porto_mobile/src/ui/widgets/donut_chart.dart';
@@ -323,6 +325,11 @@ class PortfolioDetailScreen extends ConsumerWidget {
                       if (assets.isNotEmpty)
                         _FeaturedAssetCard(
                           assetNode: assets.first,
+                          onEdit: () => _showAssetSheet(context,
+                              portfolioId: portfolio.id,
+                              existing: assets.first.asset),
+                          onOpenChart: () =>
+                              showAssetChartSheet(context, assets.first.asset),
                           onBuy: () => _showTransactionSheet(context,
                               side: 'buy',
                               assets: assets,
@@ -337,7 +344,15 @@ class PortfolioDetailScreen extends ConsumerWidget {
                       if (assets.length > 1) ...[
                         const SizedBox(height: 2),
                         DividedCard(
-                          rows: assets.skip(1).map((an) => _AssetRow(an: an)).toList(),
+                          rows: assets
+                              .skip(1)
+                              .map((an) => _AssetRow(
+                                    an: an,
+                                    onTap: () => _showAssetSheet(context,
+                                        portfolioId: portfolio.id,
+                                        existing: an.asset),
+                                  ))
+                              .toList(),
                         ),
                       ],
 
@@ -347,11 +362,8 @@ class PortfolioDetailScreen extends ConsumerWidget {
                       // asset, so it must render even when the list is empty.
                       _CreateNewCard(
                         label: '+ เพิ่มสินทรัพย์',
-                        onTap: () => showPortoSheet(
-                          context,
-                          title: 'เพิ่มสินทรัพย์',
-                          builder: (_) => AssetSheet(portfolioId: portfolio.id),
-                        ),
+                        onTap: () =>
+                            _showAssetSheet(context, portfolioId: portfolio.id),
                       ),
 
                       const SizedBox(height: 12),
@@ -396,6 +408,21 @@ class PortfolioDetailScreen extends ConsumerWidget {
           ],
         ),
       ),
+    );
+  }
+
+  /// Opens the asset form — create when [existing] is null, edit otherwise
+  /// (design-portfolios.md §"Asset sheet": "เพิ่มสินทรัพย์" / "แก้ไขสินทรัพย์").
+  void _showAssetSheet(
+    BuildContext context, {
+    required String portfolioId,
+    Asset? existing,
+  }) {
+    showPortoSheet(
+      context,
+      title: existing == null ? 'เพิ่มสินทรัพย์' : 'แก้ไขสินทรัพย์',
+      builder: (_) =>
+          AssetSheet(portfolioId: portfolioId, existing: existing),
     );
   }
 
@@ -649,6 +676,12 @@ class _CreateNewCard extends StatelessWidget {
 class _FeaturedAssetCard extends StatelessWidget {
   final AssetNode assetNode;
 
+  /// Header tap → edit this asset; sparkline tap → price-history chart
+  /// (design-settings.md §"Chart sheet": "Opened from an asset row / asset
+  /// detail (e.g. the featured-asset sparkline in Portfolio detail)").
+  final VoidCallback onEdit;
+  final VoidCallback onOpenChart;
+
   /// Supplied by [PortfolioDetailScreen] — this card holds a single AssetNode,
   /// so it cannot build the selectable-assets list the sheet needs.
   final VoidCallback onBuy;
@@ -656,6 +689,8 @@ class _FeaturedAssetCard extends StatelessWidget {
 
   const _FeaturedAssetCard({
     required this.assetNode,
+    required this.onEdit,
+    required this.onOpenChart,
     required this.onBuy,
     required this.onSell,
   });
@@ -673,8 +708,11 @@ class _FeaturedAssetCard extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // Header row
-          Row(
+          // Header row — tap to edit the asset
+          GestureDetector(
+            onTap: onEdit,
+            behavior: HitTestBehavior.opaque,
+            child: Row(
             children: [
               Container(
                 width: 38,
@@ -732,13 +770,18 @@ class _FeaturedAssetCard extends StatelessWidget {
               ),
             ],
           ),
+          ),
           const SizedBox(height: 8),
-          // Sparkline
-          SizedBox(
-            height: 34,
-            child: AreaChart(
-              const [], // No history in state — skip chart if empty
-              line: AppColors.gain,
+          // Sparkline — tap opens the price-history chart sheet
+          GestureDetector(
+            onTap: onOpenChart,
+            behavior: HitTestBehavior.opaque,
+            child: SizedBox(
+              height: 34,
+              child: AreaChart(
+                const [], // No history in state — skip chart if empty
+                line: AppColors.gain,
+              ),
             ),
           ),
           const SizedBox(height: 8),
@@ -813,7 +856,11 @@ class _ActionButton extends StatelessWidget {
 class _AssetRow extends StatelessWidget {
   final AssetNode an;
 
-  const _AssetRow({required this.an});
+  /// Tap → edit this asset. Without it `AssetSheet(existing:)` has no path
+  /// from the UI and neither has notifier `deleteAsset`.
+  final VoidCallback onTap;
+
+  const _AssetRow({required this.an, required this.onTap});
 
   @override
   Widget build(BuildContext context) {
@@ -851,6 +898,7 @@ class _AssetRow extends StatelessWidget {
           fontFeatures: [FontFeature.tabularFigures()],
         ),
       ),
+      onTap: onTap,
     );
   }
 }
