@@ -98,12 +98,20 @@
 >    `txFilterProvider` (`lib/src/state/ui_state.dart`) and `AppShell` listens,
 >    bringing tab 2 forward when it changes.
 >
->    Deliberately **plain state, not a one-shot "navigate" request**: writing a
->    value it already holds is a no-op and correct, so there is nothing to
->    consume and no ordering to get wrong between the two listeners. The
->    obvious alternatives both have a bug — a widget `initialFilter` parameter
->    goes stale when the same filter is requested twice, and a
+>    Deliberately **plain state, not a one-shot "navigate" request**: there is
+>    nothing to consume and no ordering to get wrong between the two listeners.
+>    The obvious alternatives both have a bug — a widget `initialFilter`
+>    parameter goes stale when the same filter is requested twice, and a
 >    request-then-clear provider depends on listener ordering.
+>
+>    **But `TxFilter` overrides `updateShouldNotify` to always return true, and
+>    that is load-bearing.** The *filter* is idempotent; the *navigation riding
+>    on it* is a one-shot event. Under default value-change semantics, tapping
+>    the banner a second time writes `sell` over `sell`, nothing fires, and the
+>    pop drops the user on the Portfolios tab — a control that works once and
+>    then lies, the exact class this session exists to close. Caught only
+>    because `app_shell_tab_test.dart` leaves the tab and requests the *same*
+>    filter again; the single-request test was green over it.
 >    `AppShell`'s `_currentIndex` and `initialIndex` are untouched; the listener
 >    guards on `!= 2` so tapping a pill while already on the tab does not
 >    trigger a shell rebuild. `_activePill` is gone — it duplicated `_filter`.

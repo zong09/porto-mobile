@@ -109,14 +109,15 @@
 > `'deleteAsset invalidates transactionsProvider'`. **Reach for that shape
 > whenever a mutation crosses providers** — a screen test cannot see it.
 >
-> ### Still open (pre-existing, not introduced here)
+> ### ~~Still open (pre-existing, not introduced here)~~ — ✅ CLOSED `986bc85`
 >
-> - **Liability mutations never invalidate `overviewProvider`**, so Net Worth on
->   Overview goes stale after a liability is added, adjusted, saved or deleted.
->   `LiabilitiesNotifier._reload` has the same one-line gap
->   `PortfoliosNotifier._reload` just had. Untouched here because
->   `addLiability`/`adjust` already shipped with it — it is not a regression of
->   this change, but it is the same bug.
+> - ~~**Liability mutations never invalidate `overviewProvider`**, so Net Worth
+>   on Overview goes stale after a liability is added, adjusted, saved or
+>   deleted.~~ **Fixed**, and it was wider than this entry said: *no* notifier
+>   invalidated `overviewProvider` except `SettingsNotifier.importFromJson`, so
+>   assets and transactions went stale too. All three `_reload()`s that feed Net
+>   Worth now carry the edge. See `next-session-qwen-plan.md` for the fix and
+>   the `ref.read`-vs-`ref.watch` check that confirmed the bug was real.
 
 ---
 

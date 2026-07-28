@@ -18,6 +18,16 @@ class TxFilter extends Notifier<String> {
   @override
   String build() => 'all';
 
+  /// Every write notifies, even when the value is unchanged. The filter itself
+  /// is idempotent, but the navigation riding on it is a one-shot *event*:
+  /// tapping the banner a second time asks for `sell` when `sell` is already
+  /// set, and under value-change semantics the shell would never hear it and
+  /// the user would be dropped back on the Portfolios tab. The redundant
+  /// notification is free — `AppShell` guards on the tab index, and rebuilding
+  /// the Transactions screen with the same filter costs nothing.
+  @override
+  bool updateShouldNotify(String previous, String next) => true;
+
   void choose(String key) => state = key;
 }
 

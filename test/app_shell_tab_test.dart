@@ -7,6 +7,7 @@ import 'package:porto_mobile/src/state/overview_notifier.dart';
 import 'package:porto_mobile/src/state/providers.dart';
 import 'package:porto_mobile/src/state/ui_state.dart';
 import 'package:porto_mobile/src/ui/app_shell.dart';
+import 'package:porto_mobile/src/ui/widgets/app_bottom_nav.dart';
 
 void main() {
   testWidgets('a filter request brings the Transactions tab forward',
@@ -41,5 +42,18 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(stack().index, 2);
+
+    // Navigation is a one-shot event riding on the filter, so requesting a
+    // filter the provider ALREADY holds still has to move the tab. Leave the
+    // tab the way a user does, then tap the banner a second time.
+    tester.widget<AppBottomNav>(find.byType(AppBottomNav)).onTap(1);
+    await tester.pumpAndSettle();
+    expect(stack().index, 1);
+
+    container.read(txFilterProvider.notifier).choose('sell');
+    await tester.pumpAndSettle();
+
+    expect(stack().index, 2,
+        reason: 'the banner worked once and then silently did nothing');
   });
 }
